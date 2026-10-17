@@ -67,6 +67,24 @@ jobs:
       - name: Stamp version
         shell: bash
         run: node scripts/version.mjs apply "${{ needs.plan.outputs.display }}"
+      # Installed apps verify every update against this public key (FEAT-022).
+      - name: Turn on signed updates
+        shell: bash
+        env:
+          PUBKEY: ${{ vars.MOUSECOMB_UPDATER_PUBKEY }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const file = "apps/desktop/src-tauri/tauri.conf.json";
+            if (!process.env.PUBKEY) {
+              console.error("Set the MOUSECOMB_UPDATER_PUBKEY repository variable (PIPELINE.md, one-time setup).");
+              process.exit(1);
+            }
+            const conf = JSON.parse(fs.readFileSync(file, "utf8"));
+            conf.bundle.createUpdaterArtifacts = true;
+            conf.plugins.updater.pubkey = process.env.PUBKEY;
+            fs.writeFileSync(file, JSON.stringify(conf, null, 2) + "\n");
+          '
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,3 +99,6 @@ jobs:
           releaseBody: ${{ needs.plan.outputs.notes }}
           releaseDraft: false
           prerelease: false
+          # latest.json points updaters at the per-user NSIS installer.
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true

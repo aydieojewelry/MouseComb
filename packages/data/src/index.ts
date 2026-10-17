@@ -12,17 +12,39 @@ export {
 export {
   EXTENSION_SETTINGS,
   extensionDataCollection,
+  LOCAL_SETTINGS,
+  localSettingQuery,
   SETTINGS,
   settingsCollection,
   useExtensionSetting,
+  useLocalSetting,
   useSetting,
   type SettingDef,
 } from "./settings";
+export {
+  formatClock,
+  PHASE_LABEL,
+  pomodoroSessionsCollection,
+  remainingMs,
+  sessionStats,
+  usePomodoro,
+  type PomodoroSession,
+} from "./pomodoro";
+export {
+  runAction,
+  useApps,
+  useCommands,
+  useHotkeyStatus,
+  useRunAction,
+  useUpdateStatus,
+  type ActionRequest,
+} from "./shell";
 export {
   connectBackendEvents,
   queryKeys,
   useAccount,
   useAppInfo,
+  useRequestPasswordReset,
   useServerUrl,
   useSetServerUrl,
   useSignIn,

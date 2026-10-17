@@ -12,8 +12,10 @@ use tauri::{AppHandle, Manager, State};
 use tauri_specta::Event;
 
 use crate::error::{CommandError, CommandResult, ErrorCode};
+use crate::overlays::HotkeyStatus;
 use crate::state::{AccountChanged, AppState, Connection, SERVER_URL_KEY, SyncState, SyncStatus};
-use crate::{secrets, sync_loop};
+use crate::updates::UpdateStatus;
+use crate::{overlays, secrets, sync_loop, updates};
 
 /// The backend rejects item data over 256 KB; fail early with a clear message.
 const MAX_DATA_BYTES: usize = 256 * 1024;
@@ -109,6 +111,18 @@ pub async fn account_sign_in(app: AppHandle, email: String, password: String) ->
     connect(&app, backend, session).await
 }
 
+/// Email a password-reset link. Succeeds whether or not the account exists,
+/// so nobody can use it to find out who has one.
+#[tauri::command]
+#[specta::specta]
+pub async fn account_request_password_reset(app: AppHandle, email: String) -> CommandResult<()> {
+    let email = email.trim();
+    if !email.contains('@') {
+        return Err(CommandError::new(ErrorCode::Validation, "Enter the email you signed up with."));
+    }
+    Ok(backend_for(&app)?.request_password_reset(email).await?)
+}
+
 /// Sign out. With `keep_data`, your settings and snippets stay on this device.
 #[tauri::command]
 #[specta::specta]
@@ -141,17 +155,51 @@ pub fn app_info(app: AppHandle) -> AppInfo {
     AppInfo {
         version: {
             let v = &app.package_info().version;
-            display_version(v.major, v.minor, v.patch)
+            updates::display_version(v.major, v.minor, v.patch)
         },
         device_id: app.state::<AppState>().store.device_id().to_owned(),
         data_dir: app.path().app_data_dir().map(|p| p.display().to_string()).unwrap_or_default(),
     }
 }
 
-/// `w.x.y.z+b` (VERSIONING.md) from the installer's `w.x.(y·100+z)` and the CI build number.
-fn display_version(major: u64, minor: u64, patch: u64) -> String {
-    let build = option_env!("MOUSECOMB_BUILD").unwrap_or("0");
-    format!("{major}.{minor}.{}.{}+{build}", patch / 100, patch % 100)
+/// Everything the OmniBar lists besides apps and snippets (FEAT-004).
+#[tauri::command]
+#[specta::specta]
+pub fn commands_list() -> Vec<mc_core::actions::Command> {
+    mc_core::actions::catalog()
+}
+
+/// Installed apps (FEAT-023). Empty until the first scan finishes; an
+/// `apps-changed` event follows.
+#[tauri::command]
+#[specta::specta]
+pub fn apps_list(app: AppHandle) -> Vec<mc_win::apps::App> {
+    crate::apps::refresh_if_stale(&app);
+    app.state::<AppState>().apps.read().expect("apps lock").apps.clone()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn pomodoro_get(state: State<'_, AppState>) -> mc_core::pomodoro::Pomodoro {
+    state.pomodoro.lock().expect("pomodoro lock").clone()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_status_get(app: AppHandle) -> UpdateStatus {
+    updates::status(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn hotkey_status_get(state: State<'_, AppState>) -> HotkeyStatus {
+    state.hotkey.lock().expect("hotkey lock").clone()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn omnibar_hide(app: AppHandle) {
+    overlays::hide_omnibar(&app);
 }
 
 fn backend_for(app: &AppHandle) -> CommandResult<PocketBase> {
@@ -174,13 +222,4 @@ async fn connect(app: &AppHandle, backend: PocketBase, session: mc_sync::Session
     let app = app.clone();
     tauri::async_runtime::spawn(async move { sync_loop::on_connected(&app).await });
     Ok(account)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn display_version_unpacks_patch_and_fix() {
-        assert!(super::display_version(0, 2, 103).starts_with("0.2.1.3+"));
-        assert!(super::display_version(1, 0, 0).starts_with("1.0.0.0+"));
-    }
 }

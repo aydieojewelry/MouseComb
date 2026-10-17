@@ -204,6 +204,18 @@ impl Backend for PocketBase {
         Ok(self.session_from(json_or_error(res).await?))
     }
 
+    async fn request_password_reset(&self, email: &str) -> Result<()> {
+        let res = send(
+            self.request(Method::POST, "/collections/users/request-password-reset", None)
+                .json(&json!({ "email": email })),
+        )
+        .await?;
+        if !res.status().is_success() {
+            return Err(error_from(res).await);
+        }
+        Ok(())
+    }
+
     async fn refresh(&self, session: &Session) -> Result<Session> {
         let res = send(self.request(Method::POST, "/collections/users/auth-refresh", Some(session))).await?;
         if matches!(res.status(), StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::NOT_FOUND) {

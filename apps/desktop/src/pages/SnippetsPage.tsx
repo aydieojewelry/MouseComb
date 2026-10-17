@@ -37,7 +37,7 @@ function issueText(errors: unknown[]): string | undefined {
 }
 
 export function SnippetsPage() {
-  const { q = "", id } = useSearch({ from: "/snippets" });
+  const { q = "", id } = useSearch({ from: "/_settings/snippets" });
   const navigate = useNavigate({ from: "/snippets" });
   const { data: snippets = [], isLoading } = useLiveQuery({
     query: (query) => query.from({ s: snippetsCollection }).orderBy(({ s }) => s.updated, "desc"),

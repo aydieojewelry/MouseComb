@@ -1,32 +1,10 @@
-import {
-  errorMessage,
-  useAccount,
-  useServerUrl,
-  useSetServerUrl,
-  useSignIn,
-  useSignOut,
-  useSignUp,
-  useSyncNow,
-  useSyncStatus,
-} from "@mousecomb/data";
+import { errorMessage, useAccount, useServerUrl, useSetServerUrl, useSignOut, useSyncNow, useSyncStatus } from "@mousecomb/data";
 import { Button, Dialog, Section, SignOutIcon, StatusDot, Switch, SyncIcon, TextField, toaster } from "@mousecomb/ui";
-import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
-import { z } from "zod";
 
+import { CredentialsForm } from "../components/CredentialsForm";
 import { PageHeader } from "../components/PageHeader";
 import { describeSync } from "../components/SyncBadge";
-
-const credentialsSchema = z.object({
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(8, "Use at least 8 characters.").max(71, "Use at most 71 characters."),
-});
-
-function issueText(errors: unknown[]): string | undefined {
-  const first = errors.find(Boolean);
-  if (!first) return undefined;
-  return typeof first === "string" ? first : ((first as { message?: string }).message ?? "Check this field.");
-}
 
 export function AccountPage() {
   const { data: account, isPending } = useAccount();
@@ -42,25 +20,7 @@ export function AccountPage() {
 }
 
 function SignedOut() {
-  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const { data: status } = useSyncStatus();
-  const signIn = useSignIn();
-  const signUp = useSignUp();
-  const action = mode === "sign-in" ? signIn : signUp;
-
-  const form = useForm({
-    defaultValues: { email: "", password: "" },
-    validators: { onSubmit: credentialsSchema },
-    onSubmit: async ({ value }) => {
-      try {
-        await action.mutateAsync(value);
-        toaster.success({ title: mode === "sign-in" ? "Signed in" : "Account created", description: "Syncing your setup now." });
-      } catch {
-        // Shown under the form from `action.error`.
-      }
-    },
-  });
-
   return (
     <>
       {status?.message && (
@@ -69,64 +29,10 @@ function SignedOut() {
         </p>
       )}
       <Section
-        title={mode === "sign-in" ? "Sign in" : "Create an account"}
+        title="Sign in or create an account"
         description="Everything works without an account. Signing in adds sync: changes you make here appear on your other devices within a minute."
       >
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void form.handleSubmit();
-          }}
-        >
-          <form.Field name="email">
-            {(field) => (
-              <TextField
-                label="Email"
-                type="email"
-                autoComplete="email"
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                error={issueText(field.state.meta.errors)}
-              />
-            )}
-          </form.Field>
-          <form.Field name="password">
-            {(field) => (
-              <TextField
-                label="Password"
-                type="password"
-                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                helper={mode === "sign-up" ? "At least 8 characters." : undefined}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-                error={issueText(field.state.meta.errors)}
-              />
-            )}
-          </form.Field>
-          {action.error && (
-            <p role="alert" className="text-sm text-danger">
-              {errorMessage(action.error)}
-            </p>
-          )}
-          <div className="flex items-center justify-between gap-3">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-                signIn.reset();
-                signUp.reset();
-              }}
-            >
-              {mode === "sign-in" ? "New here? Create an account" : "Have an account? Sign in"}
-            </Button>
-            <Button type="submit" variant="primary" busy={action.isPending}>
-              {mode === "sign-in" ? "Sign in" : "Create account"}
-            </Button>
-          </div>
-        </form>
+        <CredentialsForm />
       </Section>
       <ServerSection />
     </>

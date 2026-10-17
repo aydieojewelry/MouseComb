@@ -8,13 +8,13 @@ import { Portal } from "@ark-ui/react/portal";
 import { Slider as ArkSlider } from "@ark-ui/react/slider";
 import { Switch as ArkSwitch } from "@ark-ui/react/switch";
 import { Toast, Toaster as ArkToaster, createToaster } from "@ark-ui/react/toast";
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+
+import { cx } from "./cx";
 
 export * from "./icons";
-
-export function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
+export { cx } from "./cx";
+export { CommandPalette, type PaletteItem } from "./palette";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -241,5 +241,85 @@ export function Kbd(props: { children: ReactNode }) {
     <kbd className="rounded border border-line border-b-2 bg-raised px-1.5 py-0.5 font-mono text-xs text-fg">
       {props.children}
     </kbd>
+  );
+}
+
+const MODIFIER_CODES = new Set([
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "ShiftLeft",
+  "ShiftRight",
+  "MetaLeft",
+  "MetaRight",
+  "OSLeft",
+  "OSRight",
+]);
+
+/**
+ * A key combo as the hotkey service spells it (`Ctrl+Shift+K`, `Alt+Space`),
+ * or null while only modifiers are down. Needs a modifier unless it's F1–F24.
+ */
+export function shortcutFromEvent(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">): string | null {
+  if (MODIFIER_CODES.has(e.code) || !e.code) return null;
+  const isFunctionKey = /^F([1-9]|1[0-9]|2[0-4])$/.test(e.code);
+  if (!(e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) && !isFunctionKey) return null;
+  const key = e.code.replace(/^Key([A-Z])$/, "$1").replace(/^Digit(\d)$/, "$1");
+  return [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Super", key]
+    .filter(Boolean)
+    .join("+");
+}
+
+/** Shows a shortcut as key caps; click, then press keys to record a new one. */
+export function HotkeyField(props: {
+  label: string;
+  value: string;
+  description?: ReactNode;
+  error?: string | null;
+  onChange: (shortcut: string) => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (!recording) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.code === "Escape" && !(e.ctrlKey || e.altKey || e.shiftKey || e.metaKey)) {
+      setRecording(false);
+      return;
+    }
+    const shortcut = shortcutFromEvent(e);
+    if (shortcut) {
+      setRecording(false);
+      props.onChange(shortcut);
+    }
+  };
+  const parts = props.value.split("+").map((p) => (p === "Super" ? "Win" : p));
+  return (
+    <div className="flex items-center justify-between gap-6">
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm text-fg">{props.label}</span>
+        {props.description && <span className="text-xs text-muted">{props.description}</span>}
+        {props.error && (
+          <span role="alert" className="text-xs text-danger">
+            {props.error}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={() => setRecording(!recording)}
+        onKeyDown={onKeyDown}
+        onBlur={() => setRecording(false)}
+        aria-label={recording ? "Press the new shortcut, or Escape to cancel" : `${props.label}: ${props.value}. Click to change.`}
+        className={cx(
+          "flex h-9 min-w-36 shrink-0 items-center justify-center gap-1 rounded-lg border px-3 text-sm transition-colors",
+          recording ? "border-accent bg-accent/10 text-accent" : "border-line bg-raised hover:border-muted",
+          props.error && !recording && "border-danger",
+        )}
+      >
+        {recording ? "Press keys…" : parts.map((p) => <Kbd key={p}>{p}</Kbd>)}
+      </button>
+    </div>
   );
 }

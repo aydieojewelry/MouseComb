@@ -79,6 +79,10 @@ Privacy rules (FEAT-024, DEC-018) apply to everything here: opt-in only, counts 
 ## One-time setup on GitHub (owner)
 1. **Branch protection on `main`:** require a pull request, 1 approval from code owners, and these checks to pass: `Rust (lint + tests with live backend)`, `Backend (Go)`, `Frontend (types, tests, build)`, `Windows build`. Block force pushes. Allow squash merge only.
 2. **Environment `release`:** add yourself as a required reviewer.
-3. **Updater signing key:** run `pnpm --filter @mousecomb/desktop tauri signer generate`, then save the private key and its password as secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. The public key goes into the app's updater config in M1.
-4. **Variables:** `MOUSECOMB_DEFAULT_SERVER` (your hosted backend URL), and `RELEASES_ENABLED=true` once M1 is ready to ship.
-5. **Release downloads must be public** (DEC-019): make this repo public, or publish releases to a public `mousecomb-releases` repo.
+3. **Updater signing key** (once, keep it safe; losing it means installed apps can't update):
+   - run `pnpm --filter @mousecomb/desktop tauri signer generate -w ~/.tauri/mousecomb.key`;
+   - save the private key file's contents and its password as **secrets** `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+   - save the public key (`~/.tauri/mousecomb.key.pub`) as the **variable** `MOUSECOMB_UPDATER_PUBKEY`. The release workflow writes it into the app; without it the release stops with a clear message.
+4. **Backend:** host `services/pocketbase` (free VM, see its README), set up SMTP in its dashboard so password-reset emails go out, and save its address as the **variable** `MOUSECOMB_DEFAULT_SERVER`.
+5. **Turn releases on:** set the **variable** `RELEASES_ENABLED=true`, then run the Release workflow (Actions → Release → Run workflow) or wait for Tuesday. The first release is `0.1.0.0+b`.
+6. Release downloads are public because this repo is public (DEC-019). If it ever goes private, publish releases to a public `mousecomb-releases` repo instead and change the updater address.

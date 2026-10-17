@@ -111,6 +111,8 @@ pub struct SyncReport {
 pub trait Backend: Send + Sync {
     fn sign_up(&self, email: &str, password: &str) -> impl Future<Output = Result<Session>> + Send;
     fn sign_in(&self, email: &str, password: &str) -> impl Future<Output = Result<Session>> + Send;
+    /// Email a password-reset link. Succeeds even if no account has that email.
+    fn request_password_reset(&self, email: &str) -> impl Future<Output = Result<()>> + Send;
     /// Exchange a still-valid token for a fresh one.
     fn refresh(&self, session: &Session) -> impl Future<Output = Result<Session>> + Send;
     /// Items changed after `after`, oldest first, at most `limit`.

@@ -13,6 +13,24 @@ Template:
 
 ---
 
+## B-0007 — 2026-10-17 — M1 built: OmniBar, Clock HUD, Pomodoro, first launch, auto-updates
+- Owner decisions: the repo is public (DEC-019: releases from this repo), keep **Use offline** (DEC-017), usage sharing **on by default** with a switch (DEC-018).
+- Done:
+  - **OmniBar (FEAT-004, FEAT-023):** own window on a global shortcut (`Alt+Space`, recordable in Settings); `CommandPalette` (Ark Combobox + TanStack Virtual) in `packages/ui`; ranking with recents; calculator (no `eval`), web addresses, web search, installed apps (`Get-StartApps`, DEC-023), snippet copy with tokens, 8 Windows Settings pages, lock/sleep/sign out/restart/shut down with a confirm step, every Settings page, Sync now, updates, Pomodoro.
+  - **Actions (FEAT-013, M1 part):** `mc_core::actions` catalog + ids; one Rust runner (`action_run`) used by the OmniBar and the tray, with allow-lists and confirmation enforced in Rust.
+  - **Clock HUD (FEAT-001):** transparent click-through window bottom-right; proximity fade from Rust (cursor polled only while visible); Pomodoro countdown; action flashes. `hud.enabled` toggle.
+  - **Pomodoro (FEAT-002):** pure timer in `mc_core::pomodoro`; ticker, notifications, saved state, synced `pomodoro` sessions; Settings page with ring, controls, stats and durations; tray item.
+  - **First launch (FEAT-021):** Welcome page with sign-in / create account / Use offline, start-with-Windows and usage-sharing switches; password reset (`Backend::request_password_reset`).
+  - **Updates (FEAT-022):** updater plugin with status, background download, install on restart or quit; release workflow writes the public key and makes `latest.json` prefer NSIS. Off in builds without the key.
+  - New crate `mc-win` (apps, power). Routes code-split per window. Tray: OmniBar, Pomodoro, clock, updates.
+- Verified:
+  - `cargo test --workspace` with live PocketBase: 36 tests (new: Pomodoro machine, catalog, snippet tokens, prefs, fade math, version text, Start-apps parser, password reset). Clippy `-D warnings` clean; Windows cross-check passes.
+  - Vitest 14 (calculator, ranking, recents), typecheck, production build; actionlint.
+  - Real app on Linux (Xvfb + xdotool): first launch opens Welcome; `Alt+Space` opens the OmniBar; "timer" + Enter starts Pomodoro and the HUD counts down; a sum shows "Copied" on the HUD; "about" opens Settings → About; a 1-minute focus phase ended, logged a `pomodoro` item and moved to a waiting break.
+  - Fixed during the run: HUD click-through before showing crashed on Linux; HUD placed before its size was known; OmniBar hid itself on a focus bounce (400 ms grace); the "open page" event navigated the HUD window too; a resting mouse stole the OmniBar highlight.
+- Not verified: anything on real Windows (Start apps list, power actions, Acrylic look, toasts, the NSIS update cycle). The first signed release needs the owner's setup (PIPELINE.md).
+- Next: owner setup → first release `0.1.0.0+b` → install on a clean Windows PC (M1 exit check) → M2.
+
 ## B-0006 — 2026-10-17 — Delivery pipeline for AI agents; Insights add-on planned
 - Done:
   - `PIPELINE.md`: the loop plan → agent build-test loop → PR + CI → owner approval → squash merge → gated weekly release → auto-update → Insights → plan, with a diagram and the owner's one-time GitHub setup.

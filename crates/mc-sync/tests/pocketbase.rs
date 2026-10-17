@@ -151,3 +151,13 @@ async fn friendly_auth_errors() {
     let bogus = Session { token: "not-a-token".into(), ..pb.sign_in(&email, PASSWORD).await.unwrap() };
     assert!(matches!(pb.refresh(&bogus).await, Err(Error::Unauthorized)));
 }
+
+#[tokio::test]
+async fn password_reset_never_reveals_accounts() {
+    let Some(pb) = backend() else { return eprintln!("MC_TEST_PB_URL not set; skipping") };
+    let _turn = ONE_AT_A_TIME.lock().await;
+    let email = unique_email();
+    pb.sign_up(&email, PASSWORD).await.unwrap();
+    pb.request_password_reset(&email).await.unwrap();
+    pb.request_password_reset(&unique_email()).await.unwrap();
+}

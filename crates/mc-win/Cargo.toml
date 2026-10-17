@@ -1,0 +1,19 @@
+[package]
+name = "mc-win"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "MouseComb on Windows: installed apps, power commands (later: hooks, SendInput, the native action catalog)."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+specta = { workspace = true, optional = true }
+
+[features]
+specta = ["dep:specta"]
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_System_Shutdown", "Win32_System_Power"] }

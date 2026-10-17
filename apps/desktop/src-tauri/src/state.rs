@@ -2,6 +2,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
+use mc_core::pomodoro::Pomodoro;
 use mc_store::Store;
 use mc_sync::{Account, PocketBase, Session};
 use serde::{Deserialize, Serialize};
@@ -9,8 +10,12 @@ use specta::Type;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 
+use crate::apps::AppsCache;
 use crate::error::{CommandError, CommandResult, ErrorCode};
-use crate::secrets;
+use crate::overlays::HotkeyStatus;
+use crate::prefs::Prefs;
+use crate::updates::Updates;
+use crate::{pomodoro, secrets};
 
 /// Device-only setting with the sync server address (APP_SPEC §5).
 pub const SERVER_URL_KEY: &str = "sync.server_url";
@@ -55,6 +60,12 @@ pub struct AccountChanged {
     pub account: Option<Account>,
 }
 
+/// Ask the main window to show a Settings page, e.g. `/pomodoro`.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
+pub struct NavigateRequested {
+    pub to: String,
+}
+
 pub struct Connection {
     pub session: Session,
     pub backend: PocketBase,
@@ -70,6 +81,14 @@ pub struct AppState {
     /// Only one sync runs at a time.
     pub sync_lock: tokio::sync::Mutex<()>,
     pub syncing: AtomicBool,
+    /// Settings the Rust side acts on, refreshed when a setting changes.
+    pub prefs: RwLock<Prefs>,
+    pub hotkey: Mutex<HotkeyStatus>,
+    pub pomodoro: Mutex<Pomodoro>,
+    pub apps: RwLock<AppsCache>,
+    pub apps_loading: AtomicBool,
+    pub updates: Mutex<Updates>,
+    pub omnibar_shown_at: Mutex<Option<Instant>>,
 }
 
 impl AppState {
@@ -89,14 +108,28 @@ impl AppState {
             pending,
         };
 
+        let prefs = Prefs::load(&store);
+        let timer = pomodoro::load(&store, &prefs.pomodoro);
+
         Ok(Self {
-            store,
             connection: RwLock::new(connection),
             status: Mutex::new(status),
             wake: tokio::sync::Notify::new(),
             sync_lock: tokio::sync::Mutex::new(()),
             syncing: AtomicBool::new(false),
+            prefs: RwLock::new(prefs),
+            hotkey: Mutex::new(HotkeyStatus::default()),
+            pomodoro: Mutex::new(timer),
+            apps: RwLock::new(AppsCache::default()),
+            apps_loading: AtomicBool::new(false),
+            updates: Mutex::new(Updates::default()),
+            omnibar_shown_at: Mutex::new(None),
+            store,
         })
+    }
+
+    pub fn prefs(&self) -> Prefs {
+        self.prefs.read().expect("prefs lock").clone()
     }
 
     pub fn server_url(&self) -> String {

@@ -89,3 +89,67 @@ export const SignOutIcon = make(
     <path d="M12 7l3 3-3 3M15 10H8" />
   </>,
 );
+
+export const TimerIcon = make(
+  <>
+    <circle cx="10" cy="11" r="6" />
+    <path d="M10 8v3l2 1.5M8 2.5h4M15 5.5l1-1" />
+  </>,
+);
+
+export const PlayIcon = make(<path d="M7 5.2v9.6a.6.6 0 0 0 .9.5l7.4-4.8a.6.6 0 0 0 0-1L7.9 4.7a.6.6 0 0 0-.9.5Z" />);
+
+export const PauseIcon = make(<path d="M7.5 5v10M12.5 5v10" />);
+
+export const SkipIcon = make(
+  <>
+    <path d="M5 5.2v9.6a.6.6 0 0 0 .9.5l6.4-4.8a.6.6 0 0 0 0-1L5.9 4.7a.6.6 0 0 0-.9.5Z" />
+    <path d="M15 5v10" />
+  </>,
+);
+
+export const AppsIcon = make(
+  <>
+    <rect x="3.5" y="3.5" width="5" height="5" rx="1.2" />
+    <rect x="11.5" y="3.5" width="5" height="5" rx="1.2" />
+    <rect x="3.5" y="11.5" width="5" height="5" rx="1.2" />
+    <rect x="11.5" y="11.5" width="5" height="5" rx="1.2" />
+  </>,
+);
+
+export const BoltIcon = make(<path d="M11 2.5 4.5 11H10l-1 6.5L15.5 9H10l1-6.5Z" />);
+
+export const CalculatorIcon = make(
+  <>
+    <rect x="4.5" y="2.5" width="11" height="15" rx="2" />
+    <path d="M7 5.5h6M7.2 9.5h.1M10 9.5h.1M12.8 9.5h.1M7.2 12.5h.1M10 12.5h.1M12.8 12.5v2.5M7.2 15h.1M10 15h.1" />
+  </>,
+);
+
+export const GlobeIcon = make(
+  <>
+    <circle cx="10" cy="10" r="7" />
+    <path d="M3 10h14M10 3c2 2 2.8 4.3 2.8 7s-.8 5-2.8 7c-2-2-2.8-4.3-2.8-7S8 5 10 3Z" />
+  </>,
+);
+
+export const PowerIcon = make(
+  <>
+    <path d="M10 3v6.5" />
+    <path d="M6.2 5.6a6 6 0 1 0 7.6 0" />
+  </>,
+);
+
+export const GearIcon = make(
+  <>
+    <circle cx="10" cy="10" r="2.5" />
+    <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4" />
+  </>,
+);
+
+export const DownloadIcon = make(
+  <>
+    <path d="M10 3.5v9M6.5 9 10 12.5 13.5 9" />
+    <path d="M4 15.5h12" />
+  </>,
+);

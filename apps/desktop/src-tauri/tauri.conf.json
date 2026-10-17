@@ -20,7 +20,41 @@
         "minHeight": 520,
         "theme": "Dark",
         "backgroundColor": "#0E0E10",
-        "center": true
+        "center": true,
+        "visible": true
+      },
+      {
+        "label": "omnibar",
+        "title": "MouseComb OmniBar",
+        "url": "index.html#/omnibar",
+        "width": 680,
+        "height": 440,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "center": true,
+        "shadow": true,
+        "theme": "Dark"
+      },
+      {
+        "label": "hud",
+        "title": "MouseComb clock",
+        "url": "index.html#/hud",
+        "width": 220,
+        "height": 76,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "focus": false,
+        "focusable": false,
+        "shadow": false,
+        "theme": "Dark"
       }
     ],
     "security": {
@@ -29,7 +63,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,7 +75,20 @@
       "icons/icon.ico"
     ],
     "windows": {
-      "nsis": { "installMode": "currentUser" }
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/aydieojewelry/MouseComb/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

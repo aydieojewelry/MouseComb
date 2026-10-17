@@ -9,3 +9,13 @@ html,
 body {
   overflow: hidden;
 }
+
+/* The HUD and OmniBar windows are transparent; their pages draw their own panel. */
+html[data-window="hud"] body,
+html[data-window="omnibar"] body {
+  background: transparent;
+}
+html[data-window="hud"] {
+  cursor: default;
+  user-select: none;
+}

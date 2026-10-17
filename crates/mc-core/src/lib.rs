@@ -5,6 +5,9 @@
 //! is stored locally, sent to the backend and shared with the mobile app.
 //! This crate makes no OS calls (APP_SPEC §3).
 
+pub mod actions;
+pub mod pomodoro;
+
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,6 +19,8 @@ pub mod kind {
     pub const SETTING: &str = "setting";
     pub const SNIPPET: &str = "snippet";
     pub const EXTENSION: &str = "ext";
+    /// A finished Pomodoro focus session (FEAT-002 stats).
+    pub const POMODORO: &str = "pomodoro";
 }
 
 /// Length and alphabet of record ids, matching PocketBase's default id field.
@@ -143,6 +148,26 @@ impl SnippetInput {
     }
 }
 
+/// Values for the tokens a snippet can contain (FEAT-005b).
+pub struct SnippetTokens<'a> {
+    /// `2026-10-17`
+    pub date: &'a str,
+    /// `14:05:09`
+    pub time: &'a str,
+    pub user: &'a str,
+    pub clipboard: &'a str,
+}
+
+/// The text a snippet inserts: tokens filled, `\n` turned into a line break.
+/// The Settings preview (`previewSnippet` in `packages/data`) follows the same rules.
+pub fn fill_snippet(text: &str, t: &SnippetTokens<'_>) -> String {
+    text.replace("{DATE}", t.date)
+        .replace("{TIME}", t.time)
+        .replace("{USER}", t.user)
+        .replace("{CLIPBOARD}", t.clipboard)
+        .replace("\\n", "\n")
+}
+
 /// The settings key for an extension's own data.
 pub fn extension_key(extension_id: &str, key: &str) -> String {
     format!("{extension_id}/{key}")
@@ -202,6 +227,13 @@ mod tests {
         assert!(!is_valid_kind("Setting"));
         assert!(!is_valid_kind("1abc"));
         assert!(!is_valid_kind(""));
+    }
+
+    #[test]
+    fn snippet_tokens_fill_like_the_preview() {
+        let t = SnippetTokens { date: "2026-10-17", time: "14:05:09", user: "ali", clipboard: "{DATE}" };
+        assert_eq!(fill_snippet("[{TIME}] {USER}\\n{CLIPBOARD}", &t), "[14:05:09] ali\n{DATE}");
+        assert_eq!(fill_snippet("{DATE}{DATE}", &t), "2026-10-172026-10-17");
     }
 
     #[test]

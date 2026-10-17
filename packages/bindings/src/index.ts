@@ -23,18 +23,44 @@ export const commands = {
 } | null>("account_get"),
 	accountSignUp: (email: string, password: string) => typedError<Account, CommandError>(__TAURI_INVOKE("account_sign_up", { email, password })),
 	accountSignIn: (email: string, password: string) => typedError<Account, CommandError>(__TAURI_INVOKE("account_sign_in", { email, password })),
+	/**
+	 *  Email a password-reset link. Succeeds whether or not the account exists,
+	 *  so nobody can use it to find out who has one.
+	 */
+	accountRequestPasswordReset: (email: string) => typedError<null, CommandError>(__TAURI_INVOKE("account_request_password_reset", { email })),
 	/**  Sign out. With `keep_data`, your settings and snippets stay on this device. */
 	accountSignOut: (keepData: boolean) => __TAURI_INVOKE<void>("account_sign_out", { keepData }),
 	syncStatusGet: () => __TAURI_INVOKE<SyncStatus>("sync_status_get"),
 	syncNow: () => typedError<SyncReport, CommandError>(__TAURI_INVOKE("sync_now")),
 	appInfo: () => __TAURI_INVOKE<AppInfo>("app_info"),
+	/**  Everything the OmniBar lists besides apps and snippets (FEAT-004). */
+	commandsList: () => __TAURI_INVOKE<Command[]>("commands_list"),
+	/**
+	 *  Installed apps (FEAT-023). Empty until the first scan finishes; an
+	 *  `apps-changed` event follows.
+	 */
+	appsList: () => __TAURI_INVOKE<App[]>("apps_list"),
+	pomodoroGet: () => __TAURI_INVOKE<Pomodoro>("pomodoro_get"),
+	updateStatusGet: () => __TAURI_INVOKE<UpdateStatus>("update_status_get"),
+	hotkeyStatusGet: () => __TAURI_INVOKE<HotkeyStatus>("hotkey_status_get"),
+	omnibarHide: () => __TAURI_INVOKE<void>("omnibar_hide"),
+	/**  Run an action. From the OmniBar, it closes once the action succeeds. */
+	actionRun: (action: string, args: Json, confirmed: boolean) => typedError<ActionResult, CommandError>(__TAURI_INVOKE("action_run", { action, args, confirmed })),
 };
 
 /** Events */
 export const events = {
 	accountChanged: makeEvent<AccountChanged>("account-changed"),
+	appsChanged: makeEvent<AppsChanged>("apps-changed"),
+	hotkeyStatus: makeEvent<HotkeyStatus>("hotkey-status"),
+	hudFade: makeEvent<HudFade>("hud-fade"),
+	hudFlash: makeEvent<HudFlash>("hud-flash"),
 	itemsChanged: makeEvent<ItemsChanged>("items-changed"),
+	navigateRequested: makeEvent<NavigateRequested>("navigate-requested"),
+	omniBarOpened: makeEvent<OmniBarOpened>("omni-bar-opened"),
+	pomodoroChanged: makeEvent<PomodoroChanged>("pomodoro-changed"),
 	syncStatusChanged: makeEvent<SyncStatusChanged>("sync-status-changed"),
+	updateStatus: makeEvent<UpdateStatus>("update-status"),
 };
 
 /* Types */
@@ -49,10 +75,38 @@ export type AccountChanged = {
 	account: Account | null,
 };
 
+export type ActionResult = {
+	/**  A short confirmation for the HUD, e.g. "Copied". */
+	message: string | null,
+};
+
+export type App = {
+	name: string,
+	/**  What `launch` takes: a Start menu AppID. */
+	id: string,
+};
+
 export type AppInfo = {
 	version: string,
 	device_id: string,
 	data_dir: string,
+};
+
+/**  The app list changed; refetch it. */
+export type AppsChanged = null;
+
+/**  One OmniBar entry: an action with fixed arguments and the words that find it. */
+export type Command = {
+	/**  Unique per entry, e.g. `mc.settings.open:pomodoro`. */
+	key: string,
+	action: string,
+	with: unknown,
+	title: string,
+	hint: string,
+	keywords: string[],
+	group: CommandGroup,
+	/**  Destructive: the OmniBar asks for a second Enter. */
+	confirm: boolean,
 };
 
 /**  The error every command returns: a code plus a sentence to show the user. */
@@ -61,8 +115,31 @@ export type CommandError = {
 	message: string,
 };
 
+export type CommandGroup = "mouse_comb" | "pomodoro" | "windows";
+
 /**  What went wrong, in a form the UI can branch on. */
-export type ErrorCode = "invalid_credentials" | "signed_out" | "validation" | "rate_limited" | "network" | "server" | "storage";
+export type ErrorCode = "invalid_credentials" | "signed_out" | "validation" | "rate_limited" | "network" | "server" | "storage" | 
+/**  Not available on this OS or in this build. */
+"unsupported" | 
+/**  Windows (or another OS service) refused. */
+"system";
+
+/**  Whether the OmniBar hotkey is active, for the Settings page. */
+export type HotkeyStatus = {
+	hotkey: string,
+	registered: boolean,
+	message: string | null,
+};
+
+/**  HUD opacity from the cursor's distance (proximity fade), 0 to 1. */
+export type HudFade = {
+	opacity: number,
+};
+
+/**  A short message for the HUD to show, e.g. "Copied". */
+export type HudFlash = {
+	text: string,
+};
 
 /**  One synced record. */
 export type Item = {
@@ -90,6 +167,39 @@ export type ItemsChanged = {
 /**  Any JSON value. Exported to TypeScript as `unknown`; the UI validates it. */
 export type Json = unknown;
 
+/**  Ask the main window to show a Settings page, e.g. `/pomodoro`. */
+export type NavigateRequested = {
+	to: string,
+};
+
+/**  The OmniBar was just shown: clear the input and focus it. */
+export type OmniBarOpened = null;
+
+export type Phase = "focus" | "short_break" | "long_break";
+
+/**
+ *  The timer. Serialized as-is to the device-only setting `pomodoro.state`
+ *  and sent to every window in the `pomodoro-changed` event.
+ */
+export type Pomodoro = {
+	phase: Phase,
+	running: boolean,
+	/**  While running: when the phase ends (ms since the Unix epoch). */
+	ends_at: number | null,
+	/**  While stopped: time left in the phase. */
+	remaining_ms: number,
+	/**  Length of the current phase. */
+	total_ms: number,
+	/**  Focus sessions finished since the last reset (a long break follows every Nth). */
+	completed: number,
+	/**  The phase hasn't been started yet, so new durations apply to it. */
+	fresh: boolean,
+	/**  When the current focus phase was first started. */
+	started_at: number | null,
+};
+
+export type PomodoroChanged = Pomodoro;
+
 export type SyncReport = {
 	pulled: number,
 	pushed: number,
@@ -108,6 +218,24 @@ export type SyncStatus = {
 };
 
 export type SyncStatusChanged = SyncStatus;
+
+export type UpdateState = 
+/**  Development build, or the release had no updater key. */
+"disabled" | "idle" | "checking" | "downloading" | 
+/**  Downloaded; installs on restart or quit. */
+"ready" | "up_to_date" | "error";
+
+export type UpdateStatus = {
+	state: UpdateState,
+	/**  The new version as `w.x.y.z`. */
+	version: string | null,
+	notes: string | null,
+	/**  Download progress, 0 to 1, when the size is known. */
+	progress: number | null,
+	/**  Last check, ms since the Unix epoch. */
+	checked_at: number | null,
+	message: string | null,
+};
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

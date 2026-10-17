@@ -12,6 +12,10 @@ pub enum ErrorCode {
     Network,
     Server,
     Storage,
+    /// Not available on this OS or in this build.
+    Unsupported,
+    /// Windows (or another OS service) refused.
+    System,
 }
 
 /// The error every command returns: a code plus a sentence to show the user.
@@ -54,6 +58,16 @@ impl From<mc_sync::Error> for CommandError {
             E::Network(_) => ErrorCode::Network,
             E::Server { .. } => ErrorCode::Server,
             E::Store(_) => ErrorCode::Storage,
+        };
+        Self::new(code, e.to_string())
+    }
+}
+
+impl From<mc_win::Error> for CommandError {
+    fn from(e: mc_win::Error) -> Self {
+        let code = match e {
+            mc_win::Error::Unsupported => ErrorCode::Unsupported,
+            mc_win::Error::Os(_) => ErrorCode::System,
         };
         Self::new(code, e.to_string())
     }

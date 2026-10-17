@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@ark-ui/react": "^5.39.2",
-    "react": "^19.3.0"
+    "react": "^19.3.0",
+    "@tanstack/react-virtual": "^3.14.13"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

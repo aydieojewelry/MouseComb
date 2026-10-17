@@ -1,24 +1,20 @@
-import { EXTENSION_SETTINGS, SETTINGS, errorMessage, useExtensionSetting, useSetting } from "@mousecomb/data";
-import { Kbd, Section, Slider, Switch, TextField, toaster } from "@mousecomb/ui";
-import { useDebouncedCallback } from "@tanstack/react-pacer";
+import {
+  EXTENSION_SETTINGS,
+  LOCAL_SETTINGS,
+  SETTINGS,
+  errorMessage,
+  useExtensionSetting,
+  useHotkeyStatus,
+  useLocalSetting,
+  useSetting,
+} from "@mousecomb/data";
+import { HotkeyField, Kbd, Section, Slider, Switch, TextField, toaster } from "@mousecomb/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { useEffect, useState } from "react";
 
 import { HudPreview } from "../components/HudPreview";
 import { PageHeader } from "../components/PageHeader";
-
-/** Local edits show at once; saving waits until the user pauses (TanStack Pacer). */
-function useDraft<T>(saved: T, save: (value: T) => void, wait = 300) {
-  const [draft, setDraft] = useState(saved);
-  useEffect(() => setDraft(saved), [saved]);
-  const debouncedSave = useDebouncedCallback(save, { wait });
-  const change = (value: T) => {
-    setDraft(value);
-    debouncedSave(value);
-  };
-  return [draft, change] as const;
-}
+import { useDraft } from "../components/useDraft";
 
 function StartupSection() {
   const client = useQueryClient();
@@ -41,7 +37,40 @@ function StartupSection() {
   );
 }
 
+function OmniBarSection() {
+  const [hotkey, setHotkey] = useSetting(SETTINGS.omnibarHotkey);
+  const { data: status } = useHotkeyStatus();
+  const [searchUrl, setSearchUrl] = useSetting(SETTINGS.omnibarSearchUrl);
+  const [draft, change] = useDraft(searchUrl, (value: string) => {
+    if (SETTINGS.omnibarSearchUrl.schema.safeParse(value).success) setSearchUrl(value.trim());
+  }, 600);
+  const check = SETTINGS.omnibarSearchUrl.schema.safeParse(draft);
+  return (
+    <Section
+      title="OmniBar"
+      description="One box for apps, commands, snippets, sums and web searches. It also opens these settings."
+    >
+      <HotkeyField
+        label="Shortcut"
+        description="Works in every app. Esc closes the OmniBar."
+        value={hotkey}
+        error={status && !status.registered && status.hotkey === hotkey ? status.message : null}
+        onChange={setHotkey}
+      />
+      <TextField
+        label="Web search"
+        value={draft}
+        spellCheck={false}
+        helper="{q} is replaced by what you typed."
+        error={check.success ? undefined : check.error.issues[0]?.message}
+        onChange={(e) => change(e.target.value)}
+      />
+    </Section>
+  );
+}
+
 function HudSection() {
+  const [enabled, setEnabled] = useSetting(SETTINGS.hudEnabled);
   const [near, setNear] = useSetting(SETTINGS.hudFadeNearPx);
   const [far, setFar] = useSetting(SETTINGS.hudFadeFarPx);
   const [seconds, setSeconds] = useSetting(SETTINGS.hudShowSeconds);
@@ -50,9 +79,10 @@ function HudSection() {
 
   return (
     <Section
-      title="HUD clock"
-      description="The small clock in the bottom-right corner fades away as your mouse gets close, so it never covers what you're clicking. The HUD itself arrives in milestone M2; these settings already save and sync."
+      title="Clock"
+      description="The small clock in the bottom-right corner fades away as your mouse gets close, so it never covers what you're clicking. It also shows the Pomodoro countdown."
     >
+      <Switch label="Show the clock" checked={enabled} onCheckedChange={setEnabled} />
       <HudPreview nearPx={nearDraft} farPx={farDraft} showSeconds={seconds} />
       <Slider
         label="Fully hidden within"
@@ -89,7 +119,7 @@ function HyperKeySection() {
       description={
         <>
           Hold <Kbd>CapsLock</Kbd> with another key to run your shortcuts. Hold it alone to switch real CapsLock on or
-          off. The Hyper-Key arrives in milestone M1.
+          off. The Hyper-Key arrives in milestone M3.
         </>
       }
     >
@@ -101,6 +131,23 @@ function HyperKeySection() {
         step={100}
         unit=" ms"
         onValueChange={change}
+      />
+    </Section>
+  );
+}
+
+function PrivacySection() {
+  const [telemetry, setTelemetry] = useLocalSetting(LOCAL_SETTINGS.telemetryEnabled);
+  return (
+    <Section
+      title="Privacy"
+      description="Usage counts help decide what to build next. They never include keys you press, anything you type, your clipboard, snippets, window titles or file names. Collection starts in a later update; nothing is sent today."
+    >
+      <Switch
+        label="Share anonymous usage counts"
+        description="This setting stays on this PC."
+        checked={telemetry}
+        onCheckedChange={(on) => void setTelemetry(on)}
       />
     </Section>
   );
@@ -133,9 +180,11 @@ export function GeneralPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-5 px-8 py-8">
       <PageHeader title="General" description="Changes save as you make them and sync to your other devices." />
       <StartupSection />
+      <OmniBarSection />
       <HudSection />
       <HyperKeySection />
       <WeatherSection />
+      <PrivacySection />
     </div>
   );
 }

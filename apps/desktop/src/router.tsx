@@ -1,23 +1,55 @@
-import { createHashHistory, createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
+import { LOCAL_SETTINGS, localSettingQuery, queryKeys } from "@mousecomb/data";
+import { commands } from "@mousecomb/bindings";
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  createHashHistory,
+  createRootRouteWithContext,
+  createRoute,
+  createRouter,
+  lazyRouteComponent,
+  Outlet,
+  redirect,
+} from "@tanstack/react-router";
 import { z } from "zod";
 
-import { Shell } from "./components/Shell";
-import { AboutPage } from "./pages/AboutPage";
-import { AccountPage } from "./pages/AccountPage";
-import { GeneralPage } from "./pages/GeneralPage";
-import { SnippetsPage } from "./pages/SnippetsPage";
+// Each window loads only the code for its own route.
+const page = {
+  shell: lazyRouteComponent(() => import("./components/Shell"), "Shell"),
+  hud: lazyRouteComponent(() => import("./hud/HudPage"), "HudPage"),
+  omnibar: lazyRouteComponent(() => import("./omnibar/OmniBarPage"), "OmniBarPage"),
+  welcome: lazyRouteComponent(() => import("./pages/WelcomePage"), "WelcomePage"),
+  general: lazyRouteComponent(() => import("./pages/GeneralPage"), "GeneralPage"),
+  pomodoro: lazyRouteComponent(() => import("./pages/PomodoroPage"), "PomodoroPage"),
+  snippets: lazyRouteComponent(() => import("./pages/SnippetsPage"), "SnippetsPage"),
+  account: lazyRouteComponent(() => import("./pages/AccountPage"), "AccountPage"),
+  about: lazyRouteComponent(() => import("./pages/AboutPage"), "AboutPage"),
+};
 
-const rootRoute = createRootRoute({ component: Shell });
+// Each window loads the same app on its own route: `main` shows Settings
+// (or Welcome on first launch), `omnibar` and `hud` their own (APP_SPEC §4).
+const rootRoute = createRootRouteWithContext<{ queryClient: QueryClient }>()({ component: Outlet });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  beforeLoad: () => {
-    throw redirect({ to: "/general" });
+  beforeLoad: async ({ context }) => {
+    const [done, account] = await Promise.all([
+      context.queryClient.ensureQueryData(localSettingQuery(LOCAL_SETTINGS.onboardingDone)),
+      context.queryClient.ensureQueryData({ queryKey: queryKeys.account, queryFn: () => commands.accountGet() }),
+    ]);
+    throw redirect({ to: done || account ? "/general" : "/welcome" });
   },
 });
 
-const generalRoute = createRoute({ getParentRoute: () => rootRoute, path: "general", component: GeneralPage });
+const welcomeRoute = createRoute({ getParentRoute: () => rootRoute, path: "welcome", component: page.welcome });
+const omnibarRoute = createRoute({ getParentRoute: () => rootRoute, path: "omnibar", component: page.omnibar });
+const hudRoute = createRoute({ getParentRoute: () => rootRoute, path: "hud", component: page.hud });
+
+/** The Settings window: sidebar + one page. */
+const settingsRoute = createRoute({ getParentRoute: () => rootRoute, id: "_settings", component: page.shell });
+
+const generalRoute = createRoute({ getParentRoute: () => settingsRoute, path: "general", component: page.general });
+const pomodoroRoute = createRoute({ getParentRoute: () => settingsRoute, path: "pomodoro", component: page.pomodoro });
 
 export const snippetsSearch = z.object({
   /** Search text. */
@@ -27,19 +59,38 @@ export const snippetsSearch = z.object({
 });
 
 const snippetsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => settingsRoute,
   path: "snippets",
   validateSearch: snippetsSearch,
-  component: SnippetsPage,
+  component: page.snippets,
 });
 
-const accountRoute = createRoute({ getParentRoute: () => rootRoute, path: "account", component: AccountPage });
-const aboutRoute = createRoute({ getParentRoute: () => rootRoute, path: "about", component: AboutPage });
+const accountRoute = createRoute({ getParentRoute: () => settingsRoute, path: "account", component: page.account });
+const aboutRoute = createRoute({ getParentRoute: () => settingsRoute, path: "about", component: page.about });
 
-const routeTree = rootRoute.addChildren([indexRoute, generalRoute, snippetsRoute, accountRoute, aboutRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  welcomeRoute,
+  omnibarRoute,
+  hudRoute,
+  settingsRoute.addChildren([generalRoute, pomodoroRoute, snippetsRoute, accountRoute, aboutRoute]),
+]);
 
 // Hash history: every window loads index.html, whatever the route.
-export const router = createRouter({ routeTree, history: createHashHistory(), defaultPreload: "intent" });
+export const router = createRouter({
+  routeTree,
+  history: createHashHistory(),
+  defaultPreload: "intent",
+  context: { queryClient: undefined! },
+});
+
+/** Settings pages Rust may ask the main window to show (`mc.settings.open`). */
+export const SETTINGS_PAGES = ["/general", "/pomodoro", "/snippets", "/account", "/about"] as const;
+export type SettingsPage = (typeof SETTINGS_PAGES)[number];
+
+export function isSettingsPage(path: string): path is SettingsPage {
+  return (SETTINGS_PAGES as readonly string[]).includes(path);
+}
 
 declare module "@tanstack/react-router" {
   interface Register {

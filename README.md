@@ -2,12 +2,15 @@
 
 A Windows companion that lets you bind **any key, gesture or screen edge** to **any Windows command, setting or workflow**, then add more with **free extensions**. Your setup syncs to your other PCs and to the MouseComb phone app.
 
-> **Status:** pre-production, build B-0005. The app shell, account sign-in and sync work. Next, **M1**: the first installable release with the OmniBar, Clock, Pomodoro and weekly auto-updates.
+> **Status:** pre-production, build B-0007. **M1 is built**: OmniBar, Clock, Pomodoro, first-launch sign-in and auto-updates. The first public release goes out once the owner finishes the one-time GitHub setup in [`PIPELINE.md`](PIPELINE.md) and it has been tried on a real Windows PC.
 
 ## What works today
-- Tray app that starts with Windows and keeps running when you close the window
-- Settings window: General (with a live HUD preview), Snippets, Account & sync, About
-- Everything saves locally first, then syncs through your own free PocketBase server
+- **OmniBar** on a global shortcut (`Alt+Space`, changeable): installed apps, commands, snippets, a calculator, web addresses and web search, Windows Settings pages, lock/sleep/restart (with a confirm step), and every Settings page
+- **Clock** in the screen corner that fades when your mouse comes near and shows the Pomodoro countdown
+- **Pomodoro** with notifications, a tray item, and focus stats that sync
+- **First launch:** sign in, create an account or use it offline; password reset by email
+- **Updates** download in the background and install on restart (release builds)
+- Tray app that starts with Windows; everything saves locally first, then syncs through your own free PocketBase server
 
 ## Run it
 
@@ -23,7 +26,7 @@ cd services/pocketbase && go run . serve --http 127.0.0.1:8090
 pnpm dev
 ```
 
-Sign up in **Account & sync**. To preview only the UI in a browser with example data: `pnpm --filter @mousecomb/desktop dev`, then open http://localhost:1420.
+The first launch shows the sign-in page; press `Alt+Space` for the OmniBar. To preview only the UI in a browser with example data: `pnpm --filter @mousecomb/desktop dev`, then open http://localhost:1420 (`#/omnibar` and `#/hud` show those windows).
 
 ## Check it
 ```sh
@@ -40,7 +43,8 @@ node --test "scripts/*.test.mjs"                       # release version script
 | `packages/ui` | Design tokens, Ark UI components, icons |
 | `packages/data` | Live data (TanStack DB + Query) over the Rust commands |
 | `packages/bindings` | Typed client generated from Rust (`pnpm bindings`) |
-| `crates/mc-core` · `mc-store` · `mc-sync` | Data model, local SQLite store, sync client |
+| `crates/mc-core` · `mc-store` · `mc-sync` | Data model, actions, Pomodoro timer, local SQLite store, sync client |
+| `crates/mc-win` | Windows-only code: installed apps, power commands (later hooks and input) |
 | `services/pocketbase` | The backend, with free hosting notes |
 
 ## Stack

@@ -14,7 +14,7 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: pre-production          # first installable release at the end of M1 (§11)
-build: B-0006                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
+build: B-0007                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -37,6 +37,7 @@ targets:
 | Forms | **TanStack Form** + Zod 4 | Settings and extension-settings forms, generated from schemas |
 | Timing | **TanStack Pacer** | Debounced saves, throttled live previews |
 | Rust ↔ TS types | `tauri-specta` | Commands and events are typed end to end, no hand-written glue |
+| Desktop plugins | global-shortcut, updater (signed), notification, clipboard-manager, autostart, single-instance, opener | OmniBar hotkey, weekly updates, Pomodoro toasts, copy results; all used from Rust, not from the webviews |
 | Local data | SQLite (`rusqlite`, bundled) in `mc-store` | Same database file format on every device; dirty flags for sync |
 | Backend | **PocketBase v0.40** embedded as a Go framework (`services/pocketbase`) (DEC-010) | Free, open source, one small binary with auth, REST and realtime; you own the data |
 | Sync | `mc-sync`: `Backend` trait + PocketBase adapter, per-record last-writer-wins | Same data on every PC and the phone; another backend (e.g. Firebase) plugs in behind the trait |
@@ -138,7 +139,7 @@ MouseComb/
 │  ├─ mc-store/         # SQLite schema, migrations, dirty tracking
 │  ├─ mc-sync/          # Backend trait, PocketBase adapter, sync pass
 │  ├─ mc-license/       # (M7) license verification
-│  ├─ mc-win/           # (M1) Windows hooks, SendInput, native action catalog
+│  ├─ mc-win/           # Windows only: installed apps + power (M1); hooks, SendInput, native catalog (M3)
 │  └─ mc-ext/           # (M4) extension host: QuickJS sandbox, permissions, host API
 ├─ extensions/          # (M4) bundled extensions (clock, pomodoro, weather, clipboard, snippets)
 └─ services/
@@ -153,14 +154,15 @@ MouseComb/
 
 | Window | Route | Traits |
 |---|---|---|
-| HUD | `/hud` | transparent, click-through (unless Ctrl held), always-on-top, no taskbar entry |
-| OmniBar | `/omnibar` | centered, borderless, Mica/Acrylic backdrop, hides on blur |
-| Settings | `/settings/*` (bindings, workflows, edges, gestures, hud, extensions, library, account) | normal window, Mica backdrop, sidebar |
+| HUD (`hud`) | `/hud` | transparent, click-through (Ctrl to click arrives in M3), always-on-top, not focusable, no taskbar entry |
+| OmniBar (`omnibar`) | `/omnibar` | borderless, transparent, near the top of the screen with the mouse; hides on blur (after a 400 ms grace) and on Esc |
+| Settings (`main`) | `/general`, `/pomodoro`, `/snippets`, `/account`, `/about` under a pathless `_settings` layout; later bindings, workflows, edges, gestures, extensions, library | normal window, sidebar |
+| Welcome (`main`) | `/welcome` | first launch only (FEAT-021) |
 | Library | `/settings/library` | browse / install extensions |
 | Help | `/help/zen`, `/help/all` | centered, borderless |
 | Edge overlay | `/overlay` | per monitor, only while "Show on screen" is on |
 
-Windows are created at startup and hidden, so showing one is instant.
+Windows are created at startup and hidden, so showing one is instant. Each route's code is loaded only by the window that shows it. Rust events reach every window, so window-specific listeners check which window they're in.
 
 ### Which tool does what
 
@@ -228,15 +230,15 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 |---|---|---|---|
 | FEAT-000 | App shell: tray, autostart, single instance, store, windows pre-created | M0 | IN_PROGRESS (all but extra windows) |
 | FEAT-008 | CapsLock Hyper-Key | M1 | PLANNED |
-| FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 | PLANNED |
+| FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 → M3 | IN_PROGRESS (runner + the 22 actions the OmniBar needs, B-0007; full catalog M3) |
 | FEAT-014 | Trigger & binding system (any trigger → any action, per-app conditions) | M1 | PLANNED |
-| FEAT-004 | OmniBar: command palette (opens Settings, runs quick commands, later every action) | M1 | PLANNED |
+| FEAT-004 | OmniBar: command palette (opens Settings, runs quick commands, later every action) | M1 | TESTING (built B-0007, verified on Linux; needs a Windows run) |
 | FEAT-009 | Help modals, generated from the live bindings | M2 | PLANNED |
-| FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell, General with HUD preview, Snippets, Account, About) |
+| FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell, General with OmniBar shortcut recorder + HUD preview + Privacy, Pomodoro, Snippets, Account, About with updates) |
 | FEAT-015 | Workflows | M3 | PLANNED |
 | FEAT-016 | Extension host + SDK + permissions | M4 | PLANNED |
 | FEAT-018 | Script commands | M4 | PLANNED |
-| FEAT-001 | HUD with Clock widget, proximity fade | M1 | PLANNED |
+| FEAT-001 | HUD with Clock widget, proximity fade | M1 | TESTING (built B-0007; Ctrl-click waits for the M3 input engine) |
 | FEAT-006 | Mouse gesture trigger (safe triggers only) | M5 | PLANNED |
 | FEAT-007 | Hot edge & corner trigger | M5 | PLANNED |
 | FEAT-011 | LMB-hold + scroll chord trigger (opt-in) | M5 | PLANNED |
@@ -244,10 +246,11 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-019 | Editions, licensing, purchase, account | M7 | PLANNED |
 | FEAT-020 | Data store, account and sync (E2E encryption later) | M0 | IN_PROGRESS (store, auth, sync done; realtime, E2E, export pending) |
 | FEAT-012 | Mobile app | M10 | PLANNED |
-| FEAT-021 | Sign-in page on first launch | M1 | PLANNED |
-| FEAT-022 | Installer + weekly auto-updates | M1 | PLANNED |
-| FEAT-023 | Quick commands: calculator, app launcher, web search, copy a snippet | M1 | PLANNED |
-| FEAT-024 | Usage telemetry (opt-in), collected by the app | M2 | PLANNED |
+| FEAT-021 | Sign-in page on first launch | M1 | TESTING (built B-0007, with password reset) |
+| FEAT-022 | Installer + weekly auto-updates | M1 | IN_PROGRESS (updater built B-0007; first signed release waits for the owner's setup) |
+| FEAT-023 | Quick commands: calculator, app launcher, web search, copy a snippet | M1 | TESTING (built B-0007; app list and power actions need a Windows run) |
+| FEAT-002 | Pomodoro (core in M1, extension in M5) | M1 | TESTING (built B-0007, full phase verified on Linux) |
+| FEAT-024 | Usage telemetry, collected by the app | M2 | PLANNED (consent switch built B-0007, on by default, DEC-018) |
 | FEAT-026 | Insights add-on (`services/insights`): health, trends, basic ML, weekly report | M2 | PLANNED |
 | FEAT-027 | Staged rollout: updates reach 10 % → 50 % → 100 %, paused on worse health | M2 | PLANNED |
 | FEAT-028 | Delivery pipeline: CI, owner-approved merges, gated weekly release (`PIPELINE.md`) | B-0006 (built) → M1 (switched on) | IN_PROGRESS |
@@ -260,7 +263,7 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | ID | Extension | Contributes | Permissions |
 |---|---|---|---|
 | FEAT-001b | `mc.clock` | HUD widget: time + date (built in M1 inside the core, moved behind the extension API in M5) | — |
-| FEAT-002 | `mc.pomodoro` | HUD widget, start/pause/reset actions, toast, synced sessions (built in M1 inside the core, moved in M5) | notifications |
+| FEAT-002 | `mc.pomodoro` | HUD widget, start/pause/toggle/skip/reset actions (`ext.mc.pomodoro.*`), toast, synced sessions (built in M1 inside the core, moved in M5) | notifications |
 | FEAT-003 | `mc.weather` | HUD widget, refresh action | network: api.open-meteo.com |
 | FEAT-005a | `mc.clipboard` | `Caps+V` view, history, paste action | clipboard:read, keys:send |
 | FEAT-005b | `mc.snippets` | snippet list, insert action, `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` tokens (data + editor built in B-0004 as core) | clipboard:write, keys:send |
@@ -302,11 +305,37 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 - `CapsLock` is suppressed. While it is held, the next key goes to the bindings, not to the app.
 - Tap alone: nothing. Hold alone ≥ `hyper.capslock_toggle_ms` (default 1500): toggle real CapsLock, with a toast.
 
-### FEAT-004 — OmniBar (`Caps+Space`)
-- One place for everything: actions, workflows, extension commands, installed apps (Start Menu), URLs, calculator, web search. Built on Ark Combobox + TanStack Virtual.
-- Fuzzy search, recents first. Each result shows its current hotkey.
-- Extension commands can open a view (list / detail / form) inside the OmniBar.
-- `Esc` closes. Focus returns to the previous window.
+### FEAT-004 — OmniBar (`Alt+Space` in M1, `Caps+Space` from M3)
+- One place for everything: actions, workflows, extension commands, installed apps (Start Menu), URLs, calculator, web search. Built on Ark Combobox (always open) + TanStack Virtual, as `CommandPalette` in `packages/ui`.
+- **Shortcut:** setting `omnibar.hotkey`, default `Alt+Space` (DEC-016), recorded in Settings → General. If another app owns it, Settings says so. Pressing it again closes the OmniBar.
+- **Ranking:** prefix > word start > initials (`vsc`) > substring > letters in order; keywords count at 70 %; recent runs (device-only `omnibar.recents`, 20) get a boost and fill the empty state. Ties keep catalog order.
+- **Typed-in results first:** a calculator result, then a web address (`github.com/x`), and always last "Search the web" (`omnibar.search_url`, default DuckDuckGo).
+- **Destructive commands** (sleep, sign out, restart, shut down) need a second Enter; Rust refuses them without `confirmed`.
+- Hover only highlights after the mouse moves, so a window opening under a resting mouse keeps the top result.
+- `Esc` clears the text, then closes. Focus returns to the previous window. After a command runs, the OmniBar closes and the HUD flashes a short confirmation ("Copied").
+- Later: each result shows its current hotkey; extension commands open views inside it.
+
+### FEAT-023 — Quick commands (M1)
+| Command | How |
+|---|---|
+| Calculator | Own parser, no `eval`: `+ − × ÷ ^ ( )`, `200 * 15%` = 30, `x + 12%` adds 12 %, `pi`, `e`, sqrt/abs/round/floor/ceil/sin/cos/tan/log/ln, `2pi`. A bare number isn't a sum. Enter copies the result. |
+| Apps | `Get-StartApps` (desktop and Store apps, as Start shows them; uninstallers hidden), cached and refreshed when the OmniBar opens and the list is over 5 min old. Launch via `explorer.exe shell:AppsFolder\<AppID>`; AppIDs with quotes or control characters are refused. (DEC-023) |
+| Snippets | Copies the snippet with `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` filled in (`mc_core::fill_snippet`). Typing it into the app needs `keys:send` (M3). |
+| Web | Web addresses open in the browser; anything else can be searched on the web. Only `http(s)` URLs open. |
+| Windows Settings | 8 common `ms-settings:` pages from an allow-list. |
+| Power | Lock (`LockWorkStation`), sleep (`SetSuspendState`), sign out / restart / shut down (`shutdown.exe`). All but lock confirm first. |
+| MouseComb | Open Settings or any of its pages, Sync now, Check for updates / Restart to update, show or hide the clock (`setting.toggle`), Quit, Pomodoro start/pause, skip, reset. |
+
+### FEAT-002 — Pomodoro (M1, in the core)
+- Timer is a pure state machine in `mc_core::pomodoro` (time passed in), ticked by the desktop every 500 ms and saved on each change to the device-only `pomodoro.state`, so it survives a restart.
+- Settings (synced): `pomodoro.focus_min` 25, `short_break_min` 5, `long_break_min` 15, `long_break_every` 4, `auto_start` false. New lengths apply to a phase that hasn't started.
+- When a phase ends: a notification; a finished focus phase is saved as a synced item of kind `pomodoro` (`started_at`, `ended_at`, `minutes`) for stats. After sleep, only one phase ends (the next one counts from wake-up).
+- Shown in the HUD, the OmniBar ("Pause Pomodoro · Focus 12:03 left"), the tray, and Settings → Pomodoro (ring, Start/Pause, Skip, Reset, sessions today and last 7 days).
+
+### FEAT-021 — First launch (M1)
+- The main window opens on `/welcome` until the user signs in, creates an account or picks **Use offline** (device-only `onboarding.done`). Signed-in devices skip it.
+- Two switches on the same page: start with Windows (on) and share anonymous usage counts (on, DEC-018).
+- **Forgot password?** asks the server to email a reset link (PocketBase `request-password-reset`; same answer whether or not the account exists). The server needs SMTP set up to send it.
 
 ### FEAT-009 — Help modals
 - `Caps+/`: the top ~8 bindings for the **current app**. `Caps+Shift+/`: every binding, searchable, grouped by trigger type.
@@ -391,7 +420,8 @@ Restart-Service Audiosrv
 - Paid extensions: not in v1 (DEC-012).
 
 ### FEAT-001 — HUD host
-- Transparent, borderless, always-on-top, click-through window, bottom-right of the work area. Shows widgets from extensions (clock, pomodoro, weather by default) in the order you choose.
+- Transparent, borderless, always-on-top, click-through window, bottom-right of the primary screen's work area (re-placed every 10 s for screen changes). Shows widgets from extensions (clock, pomodoro, weather by default) in the order you choose.
+- **M1:** clock (locale time format, seconds optional), the date, or the Pomodoro countdown while a timer is running or paused, and 1.8 s flashes from actions. `hud.enabled` shows or hides it (Settings, OmniBar, tray). Rust polls the cursor at 20 Hz, but only while the HUD is visible, and sends an opacity only when it changes.
 - **Proximity fade:** opacity follows the cursor's distance. Hidden within `hud.fade_near_px`, fully visible beyond `hud.fade_far_px`.
 - **Holding Ctrl** makes it clickable. A widget's `Ctrl+click` / `Ctrl+right-click` run actions it declares.
 
@@ -426,12 +456,13 @@ Restart-Service Audiosrv
 ---
 
 ### FEAT-022 — Installer and auto-updates (M1)
-- NSIS installer per user (no admin needed). Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases (DEC-019).
-- The app checks at start and every 24 h, downloads in the background, shows "Update ready, restart to install", and installs on the next restart. Releases go out weekly (VERSIONING.md).
+- NSIS installer per user (no admin needed). Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases of this public repo (DEC-019): `https://github.com/aydieojewelry/MouseComb/releases/latest/download/latest.json`. `latest.json` prefers the NSIS installer.
+- The app checks 20 s after start and then once every 24 h of wall-clock time (so a PC that slept still checks), downloads in the background, says "Update ready" (notification, tray, About), and installs when the user picks **Restart to update** or quits from the tray. On Windows the installer closes the app, updates it and starts it again.
+- Updates are on only in release builds: the release workflow writes the updater public key (repository variable `MOUSECOMB_UPDATER_PUBKEY`) into `tauri.conf.json` and turns on `createUpdaterArtifacts`. Other builds say "Updates are off in this build". Releases go out weekly (VERSIONING.md).
 - A bad update never strands anyone: the previous installer stays downloadable, and the app keeps working offline.
 
 ### FEAT-024 — Usage telemetry (M2)
-- **Consent:** asked once on first launch, **off by default**, changeable any time in Settings → Privacy (DEC-018).
+- **Consent:** shown on the first-launch page as a switch, **on by default** (owner's choice, DEC-018), changeable any time in Settings → General → Privacy. Device-only setting `telemetry.enabled`. Nothing is collected or sent before M2.
 - **Collected:** a random install id (not the account), app version, Windows version, and counts of feature use: OmniBar opened, which command ran (by id), Pomodoro started/finished, sync errors by code, crash signatures, start-up time.
 - **Never collected:** keys pressed, anything typed, OmniBar search text, clipboard, snippet contents, window titles, file names, IP-based location.
 - **Path:** events batch on the PC and upload once a day to a create-only `telemetry` collection in PocketBase (users can't read it back).
@@ -446,7 +477,8 @@ Restart-Service Audiosrv
 | Destructive commands | `needs confirmation` flag, an OmniBar confirm step, a red badge in bindings. |
 | Malicious library extension | Open source, CI checks, human review for high-risk permissions, hash-verified installs, one-click disable. |
 | Stuck keys / runaway workflow | Input rules in §3, `Caps+Pause`, `mc.workflow.stop_all`. |
-| Usage telemetry | Opt-in, anonymous install id, counts only; no typed text, clipboard, snippets, titles or file names; reports aggregate only (FEAT-024). |
+| Usage telemetry | Clear switch on the first-launch page and in Settings (on by default, DEC-018); anonymous install id, counts only; no typed text, clipboard, snippets, titles or file names; reports aggregate only (FEAT-024). |
+| OmniBar runs something by mistake | Destructive power actions need a second Enter and `confirmed` in Rust; URLs limited to `http(s)`; Windows Settings pages and `setting.toggle` keys from allow-lists; app ids checked before launch. |
 | Your data on the server | Today: HTTPS and per-account access rules; the server operator could read it. End-to-end encryption before clipboard sync and 1.0 (DEC-014). Clipboard sync stays off until then. |
 | Phone used to run things on your PC | Only workflows marked "Allow from phone"; desktop toast + log for every request; unpair a device in one click. |
 | License server down | Offline verification with a grace period; core features never depend on the license (§9). |
@@ -498,11 +530,12 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
   "paused": false,
   "exclusions": { "processes": [], "auto_fullscreen": true, "scope": "device" },
   "hyper":     { "capslock_toggle_ms": 1500 },
-  "hud":       { "monitor": "primary", "fade_near_px": 60, "fade_far_px": 220, "widgets": ["mc.clock", "mc.pomodoro", "mc.weather"] },
+  "hud":       { "enabled": true, "show_seconds": false, "monitor": "primary", "fade_near_px": 60, "fade_far_px": 220, "widgets": ["mc.clock", "mc.pomodoro", "mc.weather"] },
   "gestures":  { "caps_drag": true, "rmb_drag": false, "threshold_px": 18, "axis_ratio": 2.0, "max_duration_ms": 1500, "show_trail": true },
   "chords":    { "lmb_scroll": false },
   "edges":     { "enabled": true, "edge_px": 2, "corner_px": 8, "dwell_ms": 350, "cooldown_ms": 600 },
-  "omnibar":   { "search_url": "https://duckduckgo.com/?q={q}" },
+  "omnibar":   { "hotkey": "Alt+Space", "search_url": "https://duckduckgo.com/?q={q}" },
+  "pomodoro":  { "focus_min": 25, "short_break_min": 5, "long_break_min": 15, "long_break_every": 4, "auto_start": false },
   "extensions":{ "dev_mode": false, "auto_update": true },
   "sync":      { "enabled": false, "clipboard": false }
 }
@@ -518,6 +551,10 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
   { "id": "b7", "trigger": "hyper+R", "when": { "only_in": ["Code.exe"] }, "action": "wf.build-and-run" }
 ]
 
+// device-only (local_settings table, never synced): sync.server_url, onboarding.done,
+// telemetry.enabled, omnibar.recents, pomodoro.state
+// synced item kinds today: setting, snippet, ext, pomodoro (finished focus sessions)
+
 // every synced row also carries: { "hlc": "…", "device": "…", "deleted": false }
 ```
 
@@ -528,7 +565,7 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
 | M | Scope | Exit check |
 |---|---|---|
 | M0 ✓ | Monorepo, Tauri + React shell, tray, single instance, local store, PocketBase backend, account and sync | Verified B-0004 on Linux + Windows cross-compile |
-| **M1** | **Installable app, complete in itself:** Windows installer; weekly auto-updates; sign-in page on first launch (FEAT-021); OmniBar on a global hotkey that opens Settings and runs quick commands (FEAT-004, FEAT-023); **Clock** HUD (FEAT-001); **Pomodoro** (FEAT-002); first release `0.1.0.0+b` | A fresh Windows PC installs it, signs in, opens Settings from the OmniBar, and picks up the next weekly update by itself |
+| **M1** (built B-0007) | **Installable app, complete in itself:** Windows installer; weekly auto-updates; sign-in page on first launch (FEAT-021); OmniBar on a global hotkey that opens Settings and runs quick commands (FEAT-004, FEAT-023); **Clock** HUD (FEAT-001); **Pomodoro** (FEAT-002); first release `0.1.0.0+b` | A fresh Windows PC installs it, signs in, opens Settings from the OmniBar, and picks up the next weekly update by itself |
 | **M2** | **Telemetry + Insights add-on:** opt-in usage events (FEAT-024); Insights subproject with health, trends, basic ML and the weekly report for AI agents (FEAT-026); staged rollout gated on health (FEAT-027) | A week of opted-in usage produces a readable report; a bad build stops at 10 % of installs |
 | M3 | Engine: hook thread, CapsLock Hyper-Key, action registry, native Windows actions, bindings with app rules, global pause | No stuck keys in a 30-min stress session; 30+ actions bindable |
 | M4 | Bindings editor, help modals, workflows | "Focus mode" workflow runs end to end |
@@ -578,10 +615,11 @@ Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**. 
 | DEC-013 | Merchant of record | Pick after confirming payouts to Pakistan: Paddle, Lemon Squeezy or FastSpring |
 | DEC-014 | When end-to-end encryption lands | Before clipboard sync and before 1.0 (M7). Until then the server operator can read synced data |
 | DEC-015 | Where the HUD fade distance is measured from | The HUD's edges (shown in the Settings preview) |
-| DEC-016 | OmniBar hotkey in M1 (before the CapsLock engine exists) | `Alt+Space`, changeable. `Caps+Space` joins it in M3 |
-| DEC-017 | Is sign-in required? | Sign-in page on first launch with a "Use offline" link. Required later only for Pro features |
-| DEC-018 | Telemetry consent | Opt-in, asked once on first launch, off by default; never keys, typed text, clipboard, snippets, window titles or file names |
-| DEC-019 | Where releases are downloaded from | Release files must be publicly downloadable for the updater. If this repo stays private: a public `mousecomb-releases` repo (free) holds installers + `latest.json` |
+| DEC-016 | OmniBar hotkey in M1 (before the CapsLock engine exists) | **`Alt+Space`, changeable (built B-0007).** `Caps+Space` joins it in M3 |
+| DEC-017 | Is sign-in required? | **No (decided B-0007).** Sign-in page on first launch with **Use offline**. Required later only for Pro features |
+| DEC-018 | Telemetry consent | **On by default, decided by the owner B-0007**, with a clear switch on the first-launch page and in Settings; never keys, typed text, clipboard, snippets, window titles or file names. Note: EU law (GDPR/ePrivacy) generally wants an explicit opt-in for non-essential data; revisit before selling there |
+| DEC-019 | Where releases are downloaded from | **This repo is public (decided B-0007):** installers and `latest.json` are published on its GitHub Releases |
 | DEC-021 | Insights add-on language | Python (pandas + scikit-learn) as a scheduled GitHub Actions job; free, no server. Revisit if it needs to run on the backend VM |
 | DEC-022 | Who approves | The owner approves every PR (CODEOWNERS) and every release (`release` environment). Agents never approve |
+| DEC-023 | How the OmniBar finds apps | `Get-StartApps` in PowerShell (what Start shows, Store apps included) over scanning `.lnk` files; ~1 s, so cached |
 | DEC-020 | Code signing | Tauri update files are always signed (free). Windows code signing (SmartScreen trust) before 1.0; unsigned installers show a warning until then |
