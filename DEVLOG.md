@@ -13,6 +13,16 @@ Template:
 
 ---
 
+## B-0005 — 2026-10-17 — Roadmap reshaped; versioning format
+- Done:
+  - **M1 redefined** as the first installable release, complete in itself: installer, weekly auto-updates, sign-in page, OmniBar (global hotkey) that opens Settings and runs quick commands, Clock HUD, Pomodoro. Engine work (Hyper-Key, actions, bindings) moves to M3; milestones now M0–M10, production 1.0 at M9.
+  - **M2 defined:** opt-in usage telemetry with a weekly aggregate report in the repo for AI agents to plan from, plus release automation.
+  - **`VERSIONING.md`:** format `w.x.y.z+b` (major schematic uplift, feature, patch, fix, build), commit-prefix rules, mapping to the SemVer/MSI forms installers need, trunk-based branching and weekly release train as git graphs.
+  - README lists every human-readable file; new decisions DEC-016…020 (OmniBar hotkey, sign-in, telemetry consent, release hosting, code signing).
+- Files: `APP_SPEC.md`, `VERSIONING.md`, `README.md`, `CLAUDE.md`, `DEVLOG.md`
+- Blockers / decisions: DEC-017 (sign-in required?), DEC-018 (telemetry consent), DEC-019 (is the repo private?).
+- Next: build M1.
+
 ## B-0004 — 2026-10-17 — First code: app shell, PocketBase backend, sync
 - Done:
   - **Backend (DEC-010 → PocketBase):** `services/pocketbase`, PocketBase v0.40.4 embedded in Go. Collections `users`, `items` (every synced record, told apart by `kind`), `devices`; owner-only API rules; server hook rejects older writes (409) and owner/kind/key changes; sign-in rate limits on. Deploy notes for free 24/7 hosting.

@@ -3,7 +3,8 @@
 - `APP_SPEC.md` is the single source of truth. Read it and the top entry of `DEVLOG.md` before working. Don't read anything else for context unless the task needs it.
 - Cite IDs (`FEAT-xxx`, `DEC-xxx`). Update `APP_SPEC.md` in the same change when behavior, data, config or status changes.
 - At the end of a session: add a `DEVLOG.md` entry and bump `build` in `APP_SPEC.md` §1.
-- Pre-production: no tags, releases or CHANGELOG. Use worktrees for experiments (`APP_SPEC.md` §13).
+- Versioning follows `VERSIONING.md` (`w.x.y.z+b`). Start commit messages with `uplift!:`, `feat:`, `patch:`, `fix:` (or `docs:`/`chore:`/`test:`/`ci:`); the prefix decides the next version. No tags or releases until the end of M1.
+- When you add a human-readable file, add it to the Documents table in `README.md`.
 
 ## Commands
 - Backend: `cd services/pocketbase && go run . serve --http 127.0.0.1:8090` (Go 1.27+).

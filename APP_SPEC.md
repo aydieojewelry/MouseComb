@@ -13,8 +13,8 @@
 ```yaml
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
-stage: pre-production          # see §13 for versioning rules
-build: B-0004                  # manual build counter until production
+stage: pre-production          # first installable release at the end of M1 (§11)
+build: B-0005                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -230,20 +230,25 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-008 | CapsLock Hyper-Key | M1 | PLANNED |
 | FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 | PLANNED |
 | FEAT-014 | Trigger & binding system (any trigger → any action, per-app conditions) | M1 | PLANNED |
-| FEAT-004 | OmniBar: command palette for every action, app and extension command | M2 | PLANNED |
+| FEAT-004 | OmniBar: command palette (opens Settings, runs quick commands, later every action) | M1 | PLANNED |
 | FEAT-009 | Help modals, generated from the live bindings | M2 | PLANNED |
 | FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell, General with HUD preview, Snippets, Account, About) |
 | FEAT-015 | Workflows | M3 | PLANNED |
 | FEAT-016 | Extension host + SDK + permissions | M4 | PLANNED |
 | FEAT-018 | Script commands | M4 | PLANNED |
-| FEAT-001 | HUD host (widgets from extensions, proximity fade) | M4 | PLANNED |
+| FEAT-001 | HUD with Clock widget, proximity fade | M1 | PLANNED |
 | FEAT-006 | Mouse gesture trigger (safe triggers only) | M5 | PLANNED |
 | FEAT-007 | Hot edge & corner trigger | M5 | PLANNED |
 | FEAT-011 | LMB-hold + scroll chord trigger (opt-in) | M5 | PLANNED |
 | FEAT-017 | Extension library (free, in-app store) | M6 | PLANNED |
 | FEAT-019 | Editions, licensing, purchase, account | M7 | PLANNED |
 | FEAT-020 | Data store, account and sync (E2E encryption later) | M0 | IN_PROGRESS (store, auth, sync done; realtime, E2E, export pending) |
-| FEAT-012 | Mobile app | M9 | PLANNED |
+| FEAT-012 | Mobile app | M10 | PLANNED |
+| FEAT-021 | Sign-in page on first launch | M1 | PLANNED |
+| FEAT-022 | Installer + weekly auto-updates | M1 | PLANNED |
+| FEAT-023 | Quick commands: calculator, app launcher, web search, copy a snippet | M1 | PLANNED |
+| FEAT-024 | Usage telemetry (opt-in) + weekly usage report | M2 | PLANNED |
+| FEAT-025 | Release automation: version from commits, changelog, tags | M2 | PLANNED |
 | — | Window management (`Caps+P/M/G` and all window actions) | — | DROPPED (DEC-007) |
 | — | Middle-button drag gestures | — | DROPPED (conflicts with autoscroll and panning) |
 
@@ -251,8 +256,8 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 
 | ID | Extension | Contributes | Permissions |
 |---|---|---|---|
-| FEAT-001b | `mc.clock` | HUD widget: time + date | — |
-| FEAT-002 | `mc.pomodoro` | HUD widget, start/pause/reset actions, toast, synced sessions | notifications |
+| FEAT-001b | `mc.clock` | HUD widget: time + date (built in M1 inside the core, moved behind the extension API in M5) | — |
+| FEAT-002 | `mc.pomodoro` | HUD widget, start/pause/reset actions, toast, synced sessions (built in M1 inside the core, moved in M5) | notifications |
 | FEAT-003 | `mc.weather` | HUD widget, refresh action | network: api.open-meteo.com |
 | FEAT-005a | `mc.clipboard` | `Caps+V` view, history, paste action | clipboard:read, keys:send |
 | FEAT-005b | `mc.snippets` | snippet list, insert action, `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` tokens (data + editor built in B-0004 as core) | clipboard:write, keys:send |
@@ -417,6 +422,18 @@ Restart-Service Audiosrv
 
 ---
 
+### FEAT-022 — Installer and auto-updates (M1)
+- NSIS installer per user (no admin needed). Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases (DEC-019).
+- The app checks at start and every 24 h, downloads in the background, shows "Update ready, restart to install", and installs on the next restart. Releases go out weekly (VERSIONING.md).
+- A bad update never strands anyone: the previous installer stays downloadable, and the app keeps working offline.
+
+### FEAT-024 — Usage telemetry (M2)
+- **Consent:** asked once on first launch, **off by default**, changeable any time in Settings → Privacy (DEC-018).
+- **Collected:** a random install id (not the account), app version, Windows version, and counts of feature use: OmniBar opened, which command ran (by id), Pomodoro started/finished, sync errors by code, crash signatures, start-up time.
+- **Never collected:** keys pressed, anything typed, OmniBar search text, clipboard, snippet contents, window titles, file names, IP-based location.
+- **Path:** events batch on the PC and upload once a day to a create-only `telemetry` collection in PocketBase (users can't read it back).
+- **Use:** a weekly job turns the raw events into `reports/usage/YYYY-Www.md` in the repo: plain counts and trends, no per-user rows. AI coding agents (Antigravity, Claude Code) read that report with the issue list to propose the next build. Version numbers come from what changed (VERSIONING.md), not from the report.
+
 ## 8. Safety & privacy model
 
 | Risk | Guard |
@@ -426,6 +443,7 @@ Restart-Service Audiosrv
 | Destructive commands | `needs confirmation` flag, an OmniBar confirm step, a red badge in bindings. |
 | Malicious library extension | Open source, CI checks, human review for high-risk permissions, hash-verified installs, one-click disable. |
 | Stuck keys / runaway workflow | Input rules in §3, `Caps+Pause`, `mc.workflow.stop_all`. |
+| Usage telemetry | Opt-in, anonymous install id, counts only; no typed text, clipboard, snippets, titles or file names; reports aggregate only (FEAT-024). |
 | Your data on the server | Today: HTTPS and per-account access rules; the server operator could read it. End-to-end encryption before clipboard sync and 1.0 (DEC-014). Clipboard sync stays off until then. |
 | Phone used to run things on your PC | Only workflows marked "Allow from phone"; desktop toast + log for every request; unpair a device in one click. |
 | License server down | Offline verification with a grace period; core features never depend on the license (§9). |
@@ -506,18 +524,17 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
 
 | M | Scope | Exit check |
 |---|---|---|
-| M0 ✓ | Monorepo (pnpm + Cargo), `apps/desktop` (Tauri + React + TanStack Router), `packages/ui`, `mc-store`, tray, single instance, typed commands via tauri-specta. **Pulled forward from M7:** PocketBase backend, account, sync | Verified B-0004 in the real app on Linux + Windows cross-compile; needs a first run on Windows |
-| M1 | Hook thread, Hyper-Key, action registry, first native actions, binding resolver with app conditions, global pause | No stuck keys in a 30-min stress session; 30+ native actions bindable |
-| M2 | OmniBar, help modals, Settings: bindings table + recorder (TanStack DB/Table/Form) | Any action findable in OmniBar and bindable without editing a file |
-| M3 | Workflows: runner + step editor | "Focus mode" example runs end to end |
-| M4 | Extension host, SDK + CLI, JSX views, permissions, script commands, HUD host; bundled five | All five bundled extensions built only on the public API |
-| M5 | Gesture, edge and chord triggers + visual Settings | RMB menus still work with RMB-drag on; every edge setting previewable |
-| M6 | Extension library repo, CI, in-app Library | Install, update, disable; permission re-approval works |
-| M7 | Licensing, purchase flow, Pro gating, E2E encryption + QR pairing | License works offline for 30 days; server can't read synced data |
-| M8 | Hardening → **production 1.0**: signed installer, updater, crash reports, docs, store listing | See §13 |
-| M9 | Mobile app (Android first, then iOS) | Pair by QR, edit a binding on the phone, run "Focus mode" on the PC |
-
----
+| M0 ✓ | Monorepo, Tauri + React shell, tray, single instance, local store, PocketBase backend, account and sync | Verified B-0004 on Linux + Windows cross-compile |
+| **M1** | **Installable app, complete in itself:** Windows installer; weekly auto-updates; sign-in page on first launch (FEAT-021); OmniBar on a global hotkey that opens Settings and runs quick commands (FEAT-004, FEAT-023); **Clock** HUD (FEAT-001); **Pomodoro** (FEAT-002); first release `0.1.0.0+b` | A fresh Windows PC installs it, signs in, opens Settings from the OmniBar, and picks up the next weekly update by itself |
+| **M2** | **Telemetry + release automation:** opt-in anonymous usage events to the backend (FEAT-024); weekly usage report in the repo for AI agents (Antigravity, Claude Code) to plan the next build; version computed from commit messages, changelog, tags (FEAT-025) | A week of opted-in usage produces a readable report; a merge with `feat:` releases `x+1` automatically |
+| M3 | Engine: hook thread, CapsLock Hyper-Key, action registry, native Windows actions, bindings with app rules, global pause | No stuck keys in a 30-min stress session; 30+ actions bindable |
+| M4 | Bindings editor, help modals, workflows | "Focus mode" workflow runs end to end |
+| M5 | Extension host, SDK, permissions, script commands; Clock and Pomodoro move behind the extension API | Bundled extensions built only on the public API |
+| M6 | Gesture, edge and chord triggers + visual Settings | RMB menus still work with RMB-drag on |
+| M7 | Extension library | Install, update, disable; permission re-approval works |
+| M8 | Pro: licensing, purchase, E2E encryption, QR pairing | License works offline for 30 days; server can't read synced data |
+| M9 | Hardening → **production 1.0.0.0** | Code-signed installer, crash reports, store listing |
+| M10 | Mobile app | Pair by QR, run a PC workflow from the phone |
 
 ## 12. Mobile app (FEAT-012)
 
@@ -532,10 +549,12 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 
 ## 13. Versioning policy
 
-- **Pre-production (now):** no SemVer, tags or releases. Each work session bumps the manual build counter (`B-0001`, `B-0002`, …) in §1 and `DEVLOG.md`. Use git worktrees for experiments (`git worktree add ../mc-<topic> -b wip/<topic>`); merge or delete them.
-- **Production (from 1.0.0, end of M8):** SemVer for the app, the extension API (`api: 1`) and the sync protocol. `CHANGELOG.md`, annotated tags, GitHub Releases with signed installers, conventional commits, protected `main`. `DEVLOG.md` is then frozen as pre-history.
+Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**.
 
----
+- Format **`w.x.y.z+b`**: major schematic uplift . feature update . patch . fix + build number.
+- Until the first release (end of M1): sessions are logged in `DEVLOG.md` as `B-000N`.
+- From the first release: weekly releases from `main` (hotfixes any day), tags `vw.x.y.z+b`, GitHub Releases, `CHANGELOG.md`, auto-updates. Installers and the updater use the SemVer form `w.x.(y·100+z)+b`.
+- Trunk-based branching: short-lived branches merged to `main` by pull request; worktrees for experiments.
 
 ## 14. Open decisions
 
@@ -556,3 +575,8 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 | DEC-013 | Merchant of record | Pick after confirming payouts to Pakistan: Paddle, Lemon Squeezy or FastSpring |
 | DEC-014 | When end-to-end encryption lands | Before clipboard sync and before 1.0 (M7). Until then the server operator can read synced data |
 | DEC-015 | Where the HUD fade distance is measured from | The HUD's edges (shown in the Settings preview) |
+| DEC-016 | OmniBar hotkey in M1 (before the CapsLock engine exists) | `Alt+Space`, changeable. `Caps+Space` joins it in M3 |
+| DEC-017 | Is sign-in required? | Sign-in page on first launch with a "Use offline" link. Required later only for Pro features |
+| DEC-018 | Telemetry consent | Opt-in, asked once on first launch, off by default; never keys, typed text, clipboard, snippets, window titles or file names |
+| DEC-019 | Where releases are downloaded from | Release files must be publicly downloadable for the updater. If this repo stays private: a public `mousecomb-releases` repo (free) holds installers + `latest.json` |
+| DEC-020 | Code signing | Tauri update files are always signed (free). Windows code signing (SmartScreen trust) before 1.0; unsigned installers show a warning until then |

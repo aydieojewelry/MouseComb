@@ -2,7 +2,7 @@
 
 A Windows companion that lets you bind **any key, gesture or screen edge** to **any Windows command, setting or workflow**, then add more with **free extensions**. Your setup syncs to your other PCs and to the MouseComb phone app.
 
-> **Status:** pre-production, build B-0004. The app shell, account sign-in and sync work. Hotkeys and gestures come next (M1).
+> **Status:** pre-production, build B-0005. The app shell, account sign-in and sync work. Next, **M1**: the first installable release with the OmniBar, Clock, Pomodoro and weekly auto-updates.
 
 ## What works today
 - Tray app that starts with Windows and keeps running when you close the window
@@ -45,8 +45,16 @@ pnpm -r typecheck && pnpm -r test
 ## Stack
 Tauri v2 + Rust · React 19 + TypeScript · Ark UI (Zag.js) · TanStack Router / DB / Query / Form / Virtual / Pacer · Tailwind v4 · SQLite · PocketBase.
 
-## Docs
-- [`APP_SPEC.md`](APP_SPEC.md): what we're building, architecture, data & sync, licensing, milestones (single source of truth)
-- [`DEVLOG.md`](DEVLOG.md): build log until 1.0
-- [`CLAUDE.md`](CLAUDE.md): rules and commands for AI agents
-- [`services/pocketbase/README.md`](services/pocketbase/README.md): backend, deploy, free hosting
+## Documents
+Every human-readable file in the repo:
+
+| File | What it's for |
+|---|---|
+| [`README.md`](README.md) | This page: what MouseComb is, how to run and check it |
+| [`APP_SPEC.md`](APP_SPEC.md) | Single source of truth: features, architecture, data & sync, privacy, licensing, milestones, decisions |
+| [`VERSIONING.md`](VERSIONING.md) | Version format `w.x.y.z+b`, how versions are chosen, branches and weekly releases (with git graphs) |
+| [`DEVLOG.md`](DEVLOG.md) | What each work session did, newest first |
+| [`CLAUDE.md`](CLAUDE.md) | Rules and commands for AI coding agents |
+| [`services/pocketbase/README.md`](services/pocketbase/README.md) | The backend: running, deploying, free 24/7 hosting |
+
+Coming with the first release: `CHANGELOG.md` (user-facing changes per version). Coming in M2: `reports/usage/` (weekly usage reports).
