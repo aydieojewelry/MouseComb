@@ -26,7 +26,7 @@ targets:
 |---|---|---|
 | App shell | **Tauri v2** + official plugins (DEC-008) | Small native installer, tray, updater, autostart; same project builds Android/iOS |
 | Core language | **Rust** (stable), Cargo workspace | Fast, memory-safe; one core for desktop and mobile |
-| Windows access | `windows` crate | Low-level hooks, SendInput, windows, audio, monitors, radios |
+| Windows access | `windows` crate | Low-level hooks, SendInput, audio, monitors, radios |
 | UI framework | **React 19 + TypeScript + Vite** (DEC-001) | Largest ecosystem, shared by desktop, mobile and extension views |
 | UI components | **Ark UI** (React components built on **Zag.js** state machines); raw `@zag-js/*` machines for custom widgets | Accessible, keyboard-complete, predictable state; headless so it takes our design |
 | Styling | Tailwind CSS v4 with MouseComb tokens as CSS variables | Fast to build, themeable, tiny output |
@@ -244,7 +244,7 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-019 | Editions, licensing, purchase, account | M7 | PLANNED |
 | FEAT-020 | Data store, account and sync (E2E encryption later) | M0 | IN_PROGRESS (store, auth, sync done; realtime, E2E, export pending) |
 | FEAT-012 | Mobile app | M9 | PLANNED |
-| — | Window-management preset hotkeys (`Caps+P/M/G`) | — | DROPPED (window actions exist in the catalog, unbound) |
+| — | Window management (`Caps+P/M/G` and all window actions) | — | DROPPED (DEC-007) |
 | — | Middle-button drag gestures | — | DROPPED (conflicts with autoscroll and panning) |
 
 ### Bundled extensions (ship with the app, removable, built on the public API)
@@ -270,7 +270,6 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 |---|---|---|
 | Input | send keys, type text, mouse click / move / scroll | tagged, never re-triggers MouseComb |
 | Apps | launch, focus-or-launch, close, kill | kill asks for confirmation |
-| Windows | focus, minimize, maximize, restore, close, snap left/right, move to monitor, always-on-top, opacity | catalog only; no default bindings (DEC-007) |
 | Desktops | next / prev / go to N, Task View | uses Windows' own shortcuts |
 | Audio & media | volume ± / set / mute, mic mute, play/pause/next/prev | output-device switching needs an undocumented API, later |
 | Display & system | brightness (laptops), dark/light mode, Wi-Fi / Bluetooth on/off, Night light *(deep link only)* | public APIs where they exist, otherwise opens the right Settings page |
@@ -364,7 +363,6 @@ A workflow is a list of steps stored in the database, edited in a visual step ed
 | `keys:send` | type text and send key combos via core actions | medium |
 | `apps:launch` | start apps, open files and URLs | medium |
 | `files:<path>` | read/write inside a chosen folder | medium |
-| `windows` | window actions on other apps | high, human review |
 | `shell` | run commands / PowerShell | high, human review |
 
 ### FEAT-018 — Script commands
@@ -379,7 +377,7 @@ Restart-Service Audiosrv
 
 ### FEAT-017 — Extension library
 - Free and open source: one public GitHub repo (`mousecomb-extensions`, DEC-006), one folder per extension.
-- Publishing = pull request. CI checks the manifest, permissions, bundle size and API version, builds the bundle and records its SHA-256. A human approves every `shell` or `windows` permission.
+- Publishing = pull request. CI checks the manifest, permissions, bundle size and API version, builds the bundle and records its SHA-256. A human approves every `shell` permission.
 - The in-app **Library** browses the index (search, categories, screenshots, permission badges), installs in one click, verifies the hash, and auto-updates.
 - **Developer mode:** load an unpacked extension from a folder, with a persistent "unverified" badge.
 - Paid extensions: not in v1 (DEC-012).
@@ -549,7 +547,7 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 | DEC-004 | Prototype modules `Plugins` / `StickyEngine` | Superseded by extensions; sticky notes can be an extension |
 | DEC-005 | Extension runtime | TypeScript + JSX on embedded QuickJS. Alternative: WebAssembly (any language, harder to write) |
 | DEC-006 | Library hosting | Public GitHub repo + generated index |
-| DEC-007 | Window actions in the catalog, unbound | Keep, unbound |
+| DEC-007 | Window actions | **Removed (decided B-0004).** No window management in MouseComb: no actions, no hotkeys, no extension permission |
 | DEC-008 | Shell: Tauri + plugins vs. a native WinUI 3 (C#) shell | **Tauri v2 + plugins** with Mica/Acrylic, native tray, toasts and Fluent icons. A WinUI shell would split the code from mobile and React |
 | DEC-009 | Pricing model | Free forever + Pro (yearly, with a lifetime option). Prices TBD |
 | DEC-010 | Backend | **PocketBase, decided B-0004.** Free 24/7 hosting: Google Cloud e2-micro or Oracle Always Free VM (see `services/pocketbase/README.md`). Firebase stays possible behind the `Backend` trait |

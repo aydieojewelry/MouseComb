@@ -27,6 +27,7 @@ Template:
   - `cargo check --target x86_64-pc-windows-gnu` passes (tray, Credential Manager code).
 - Not verified: running on real Windows (WebView2, tray, Credential Manager, autostart).
 - Workarounds: specta-typescript 0.0.12 loops on recursive `serde_json::Value`, so JSON fields export as `unknown` (validated with Zod in the UI). Fluent icon package dropped for size.
+- Decision after review: DEC-007, window actions removed entirely (catalog group and the `windows` extension permission are gone).
 - Next: first run on Windows; then **M1** (hook thread, Hyper-Key, action registry, bindings).
 
 ## B-0003 — 2026-10-17 — React + Ark/Zag + TanStack, sync, Pro edition
