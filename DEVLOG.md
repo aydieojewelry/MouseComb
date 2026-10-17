@@ -13,6 +13,19 @@ Template:
 
 ---
 
+## B-0003 — 2026-10-17 — React + Ark/Zag + TanStack, sync, Pro edition
+- Done:
+  - UI framework switched from Svelte to **React 19** (DEC-001). Components: **Ark UI** (Zag.js state machines), raw `@zag-js/*` for custom widgets, Tailwind v4 tokens, Fluent icons.
+  - TanStack mapped to jobs (§4): Router (one route per window), **DB** (live collections backed by the Rust store via typed Tauri events/commands), Query, Table, Virtual, Form + Zod 4, Pacer.
+  - Shell decision DEC-008: Tauri v2 + official plugins, with a native feel (Mica/Acrylic, native tray, toasts) rather than a WinUI 3 shell.
+  - New FEAT-020 data & sync: SQLite store on every device, end-to-end encrypted last-writer-wins sync, QR pairing, phone → desktop "Allow from phone" workflow requests.
+  - New FEAT-019 product & licensing: Free + Pro editions, merchant of record, signed offline-verifiable license tokens, code-signed installer, updater.
+  - Monorepo layout: `apps/desktop`, `apps/mobile`, `packages/{ui,data,bindings,api}`, `crates/{mc-core,mc-store,mc-sync,mc-license,mc-win,mc-ext}`, `services/sync`.
+  - Milestones now M0–M9 (1.0 at M8, mobile at M9).
+- Files: `APP_SPEC.md`, `DEVLOG.md`, `CLAUDE.md`, `README.md`
+- Blockers / decisions: DEC-009 (pricing), DEC-011 (mobile framework), DEC-013 (merchant of record) need the owner.
+- Next: **M0** monorepo scaffold.
+
 ## B-0002 — 2026-10-17 — Extension platform re-architecture
 - Done:
   - MouseComb is now a platform: **triggers → bindings → actions**. Any hotkey, Hyper-key combo, key sequence, gesture, edge or chord can be bound to any action or workflow, optionally per app.
