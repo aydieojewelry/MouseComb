@@ -14,7 +14,7 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: pre-production          # first installable release at the end of M1 (§11)
-build: B-0005                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
+build: B-0006                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -247,8 +247,11 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-021 | Sign-in page on first launch | M1 | PLANNED |
 | FEAT-022 | Installer + weekly auto-updates | M1 | PLANNED |
 | FEAT-023 | Quick commands: calculator, app launcher, web search, copy a snippet | M1 | PLANNED |
-| FEAT-024 | Usage telemetry (opt-in) + weekly usage report | M2 | PLANNED |
-| FEAT-025 | Release automation: version from commits, changelog, tags | M2 | PLANNED |
+| FEAT-024 | Usage telemetry (opt-in), collected by the app | M2 | PLANNED |
+| FEAT-026 | Insights add-on (`services/insights`): health, trends, basic ML, weekly report | M2 | PLANNED |
+| FEAT-027 | Staged rollout: updates reach 10 % → 50 % → 100 %, paused on worse health | M2 | PLANNED |
+| FEAT-028 | Delivery pipeline: CI, owner-approved merges, gated weekly release (`PIPELINE.md`) | B-0006 (built) → M1 (switched on) | IN_PROGRESS |
+| FEAT-025 | Release automation: version from commits, release notes, tags (`scripts/version.mjs`) | B-0006 | IN_PROGRESS (script + workflow built; enabled at M1) |
 | — | Window management (`Caps+P/M/G` and all window actions) | — | DROPPED (DEC-007) |
 | — | Middle-button drag gestures | — | DROPPED (conflicts with autoscroll and panning) |
 
@@ -432,7 +435,7 @@ Restart-Service Audiosrv
 - **Collected:** a random install id (not the account), app version, Windows version, and counts of feature use: OmniBar opened, which command ran (by id), Pomodoro started/finished, sync errors by code, crash signatures, start-up time.
 - **Never collected:** keys pressed, anything typed, OmniBar search text, clipboard, snippet contents, window titles, file names, IP-based location.
 - **Path:** events batch on the PC and upload once a day to a create-only `telemetry` collection in PocketBase (users can't read it back).
-- **Use:** a weekly job turns the raw events into `reports/usage/YYYY-Www.md` in the repo: plain counts and trends, no per-user rows. AI coding agents (Antigravity, Claude Code) read that report with the issue list to propose the next build. Version numbers come from what changed (VERSIONING.md), not from the report.
+- **Use:** the Insights add-on (FEAT-026, a separate optional subproject in `services/insights`) turns the raw events into release health, feature trends, anomaly alerts (rolling baseline) and usage groups (k-means on feature counts). It publishes `reports/usage/YYYY-Www.md` (aggregates only) by pull request and a health signal that can pause a staged rollout (FEAT-027). AI coding agents read the report with the issue list to propose the next build. Version numbers come from what changed (VERSIONING.md), not from the report.
 
 ## 8. Safety & privacy model
 
@@ -526,7 +529,7 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
 |---|---|---|
 | M0 ✓ | Monorepo, Tauri + React shell, tray, single instance, local store, PocketBase backend, account and sync | Verified B-0004 on Linux + Windows cross-compile |
 | **M1** | **Installable app, complete in itself:** Windows installer; weekly auto-updates; sign-in page on first launch (FEAT-021); OmniBar on a global hotkey that opens Settings and runs quick commands (FEAT-004, FEAT-023); **Clock** HUD (FEAT-001); **Pomodoro** (FEAT-002); first release `0.1.0.0+b` | A fresh Windows PC installs it, signs in, opens Settings from the OmniBar, and picks up the next weekly update by itself |
-| **M2** | **Telemetry + release automation:** opt-in anonymous usage events to the backend (FEAT-024); weekly usage report in the repo for AI agents (Antigravity, Claude Code) to plan the next build; version computed from commit messages, changelog, tags (FEAT-025) | A week of opted-in usage produces a readable report; a merge with `feat:` releases `x+1` automatically |
+| **M2** | **Telemetry + Insights add-on:** opt-in usage events (FEAT-024); Insights subproject with health, trends, basic ML and the weekly report for AI agents (FEAT-026); staged rollout gated on health (FEAT-027) | A week of opted-in usage produces a readable report; a bad build stops at 10 % of installs |
 | M3 | Engine: hook thread, CapsLock Hyper-Key, action registry, native Windows actions, bindings with app rules, global pause | No stuck keys in a 30-min stress session; 30+ actions bindable |
 | M4 | Bindings editor, help modals, workflows | "Focus mode" workflow runs end to end |
 | M5 | Extension host, SDK, permissions, script commands; Clock and Pomodoro move behind the extension API | Bundled extensions built only on the public API |
@@ -549,11 +552,11 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 
 ## 13. Versioning policy
 
-Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**.
+Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**. How changes get from a branch to users (CI, approvals, releases, rollout): **[`PIPELINE.md`](PIPELINE.md)**.
 
 - Format **`w.x.y.z+b`**: major schematic uplift . feature update . patch . fix + build number.
 - Until the first release (end of M1): sessions are logged in `DEVLOG.md` as `B-000N`.
-- From the first release: weekly releases from `main` (hotfixes any day), tags `vw.x.y.z+b`, GitHub Releases, `CHANGELOG.md`, auto-updates. Installers and the updater use the SemVer form `w.x.(y·100+z)+b`.
+- From the first release: weekly releases from `main` (hotfixes any day), tags `vw.x.y.z+b`, GitHub Releases, `CHANGELOG.md`, auto-updates. Installers and the updater use the form `w.x.(y·100+z)`; the build number is compiled in as `MOUSECOMB_BUILD`.
 - Trunk-based branching: short-lived branches merged to `main` by pull request; worktrees for experiments.
 
 ## 14. Open decisions
@@ -579,4 +582,6 @@ Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**.
 | DEC-017 | Is sign-in required? | Sign-in page on first launch with a "Use offline" link. Required later only for Pro features |
 | DEC-018 | Telemetry consent | Opt-in, asked once on first launch, off by default; never keys, typed text, clipboard, snippets, window titles or file names |
 | DEC-019 | Where releases are downloaded from | Release files must be publicly downloadable for the updater. If this repo stays private: a public `mousecomb-releases` repo (free) holds installers + `latest.json` |
+| DEC-021 | Insights add-on language | Python (pandas + scikit-learn) as a scheduled GitHub Actions job; free, no server. Revisit if it needs to run on the backend VM |
+| DEC-022 | Who approves | The owner approves every PR (CODEOWNERS) and every release (`release` environment). Agents never approve |
 | DEC-020 | Code signing | Tauri update files are always signed (free). Windows code signing (SmartScreen trust) before 1.0; unsigned installers show a warning until then |

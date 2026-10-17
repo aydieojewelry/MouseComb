@@ -30,13 +30,13 @@ The release script reads the commit messages since the last tag and takes the bi
 
 ## Where each form is used
 
-Windows installers and the Tauri updater only accept three-part versions, so one release has three spellings:
+Windows installers and the Tauri updater only accept three-part versions, so one release has two spellings plus a build number:
 
 | Where | Form | Example for `0.2.1.3+36` |
 |---|---|---|
 | Git tag, GitHub Release, About page, docs | `w.x.y.z+b` | `v0.2.1.3+36` |
-| `Cargo.toml`, `tauri.conf.json`, `package.json`, updater (SemVer) | `w.x.(y·100+z)+b` | `0.2.103+36` |
-| MSI installer (`major.minor.build`, build ≤ 65535) | `w.x.(y·100+z)` | `0.2.103` |
+| `Cargo.toml`, `tauri.conf.json`, `package.json`, updater (SemVer), MSI installer (`major.minor.build`, build ≤ 65535) | `w.x.(y·100+z)` | `0.2.103` |
+| Build number inside the app | `MOUSECOMB_BUILD` at compile time | `36` |
 
 Limits that keep this exact: `z` ≤ 99 and `y` ≤ 654. The release script stops if either is exceeded.
 

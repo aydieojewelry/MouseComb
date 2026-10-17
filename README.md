@@ -30,6 +30,7 @@ Sign up in **Account & sync**. To preview only the UI in a browser with example 
 cargo test --workspace                     # add MC_TEST_PB_URL=http://127.0.0.1:8090 for live backend tests
 cargo clippy --workspace --all-targets
 pnpm -r typecheck && pnpm -r test
+node --test "scripts/*.test.mjs"                       # release version script
 ```
 
 ## Layout
@@ -54,7 +55,11 @@ Every human-readable file in the repo:
 | [`APP_SPEC.md`](APP_SPEC.md) | Single source of truth: features, architecture, data & sync, privacy, licensing, milestones, decisions |
 | [`VERSIONING.md`](VERSIONING.md) | Version format `w.x.y.z+b`, how versions are chosen, branches and weekly releases (with git graphs) |
 | [`DEVLOG.md`](DEVLOG.md) | What each work session did, newest first |
+| [`PIPELINE.md`](PIPELINE.md) | How a change gets from a branch to users: build loop, review, merge, weekly release, rollout, Insights add-on |
 | [`CLAUDE.md`](CLAUDE.md) | Rules and commands for AI coding agents |
+| [`AGENTS.md`](AGENTS.md) | Starting point for any AI agent (Antigravity, Codex, Cursor, …) |
+| [`.claude/skills/steward/SKILL.md`](.claude/skills/steward/SKILL.md) | Step-by-step procedure agents follow: build-test loop → PR → approval → merge → release |
+| [`.github/pull_request_template.md`](.github/pull_request_template.md) | Checklist every pull request fills in |
 | [`services/pocketbase/README.md`](services/pocketbase/README.md) | The backend: running, deploying, free 24/7 hosting |
 
 Coming with the first release: `CHANGELOG.md` (user-facing changes per version). Coming in M2: `reports/usage/` (weekly usage reports).

@@ -5,6 +5,7 @@
 - At the end of a session: add a `DEVLOG.md` entry and bump `build` in `APP_SPEC.md` §1.
 - Versioning follows `VERSIONING.md` (`w.x.y.z+b`). Start commit messages with `uplift!:`, `feat:`, `patch:`, `fix:` (or `docs:`/`chore:`/`test:`/`ci:`); the prefix decides the next version. No tags or releases until the end of M1.
 - When you add a human-readable file, add it to the Documents table in `README.md`.
+- Delivery: follow `.claude/skills/steward/SKILL.md` (build-test loop → PR with prefixed title → owner approval → squash merge). Never commit to `main`, never approve or merge without the owner, releases only via the release workflow (`PIPELINE.md`).
 
 ## Commands
 - Backend: `cd services/pocketbase && go run . serve --http 127.0.0.1:8090` (Go 1.27+).
@@ -12,6 +13,7 @@
 - Windows check from Linux: `cargo check -p mousecomb-desktop --target x86_64-pc-windows-gnu`.
 - After changing a Tauri command or event: `pnpm bindings` (regenerates `packages/bindings`).
 - Frontend: `pnpm -r typecheck`, `pnpm -r test`, `pnpm --filter @mousecomb/desktop build`.
+- Release script: `node --test "scripts/*.test.mjs"` (tests), `node scripts/version.mjs next` (what the next release would be).
 - UI in a plain browser with example data: `pnpm --filter @mousecomb/desktop dev`, open http://localhost:1420.
 - pnpm only installs versions published 14+ days ago (`minimumReleaseAge`); don't override it.
 

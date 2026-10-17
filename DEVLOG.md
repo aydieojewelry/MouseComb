@@ -13,6 +13,17 @@ Template:
 
 ---
 
+## B-0006 — 2026-10-17 — Delivery pipeline for AI agents; Insights add-on planned
+- Done:
+  - `PIPELINE.md`: the loop plan → agent build-test loop → PR + CI → owner approval → squash merge → gated weekly release → auto-update → Insights → plan, with a diagram and the owner's one-time GitHub setup.
+  - `.claude/skills/steward/SKILL.md`: the procedure agents follow (commands, commit prefixes, PR, CI fix loop, when to stop and ask). `AGENTS.md` points other agents (Antigravity, Codex, Cursor) to the same rules.
+  - CI (`.github/workflows/ci.yml`): Rust fmt/clippy/tests against a live PocketBase + bindings drift check, Go vet/build, frontend types/tests/build + script tests, Windows build. Release (`release.yml`): weekly + manual, picks the version from commits, waits for owner approval on the `release` environment, builds and publishes with tauri-action; off until `RELEASES_ENABLED=true`.
+  - `scripts/version.mjs` (+ 6 tests): next `w.x.y.z+b` from commit prefixes, installer form `w.x.(y·100+z)`, release notes, stamping manifests. About page now shows `w.x.y.z+b`.
+  - `.github/CODEOWNERS`, PR template. Spec: FEAT-026 Insights add-on (subproject, basic ML), FEAT-027 staged rollout, FEAT-028 pipeline; DEC-021/022.
+- Verified: workflows pass actionlint; version tests pass; `apply` stamps all three manifests; clippy `-D warnings` clean; the three Mermaid diagrams render.
+- Not verified: the workflows haven't run on GitHub yet (first run happens on the next push/PR); branch protection and the `release` environment must be set up by the owner (PIPELINE.md, "One-time setup").
+- Next: owner setup on GitHub; then build M1.
+
 ## B-0005 — 2026-10-17 — Roadmap reshaped; versioning format
 - Done:
   - **M1 redefined** as the first installable release, complete in itself: installer, weekly auto-updates, sign-in page, OmniBar (global hotkey) that opens Settings and runs quick commands, Clock HUD, Pomodoro. Engine work (Hyper-Key, actions, bindings) moves to M3; milestones now M0–M10, production 1.0 at M9.
