@@ -13,6 +13,17 @@ Template:
 
 ---
 
+## B-0002 — 2026-10-17 — Extension platform re-architecture
+- Done:
+  - MouseComb is now a platform: **triggers → bindings → actions**. Any hotkey, Hyper-key combo, key sequence, gesture, edge or chord can be bound to any action or workflow, optionally per app.
+  - New core features: action registry with a native Windows catalog and auto-generated `setting.*` actions (FEAT-013), binding system (FEAT-014), workflows (FEAT-015), extension host + SDK + permissions (FEAT-016), free extension library (FEAT-017), script commands (FEAT-018).
+  - Moved clock, pomodoro, weather, clipboard and snippets out of core into **bundled extensions** built on the public API. The HUD is now a widget host.
+  - Added a safety model (§6) and new config files (`bindings.json`, `workflows/`). Milestones re-ordered M0–M8.
+  - New decisions DEC-005 (QuickJS/TypeScript runtime), DEC-006 (GitHub-hosted library), DEC-007 (window actions in catalog, unbound).
+- Files: `APP_SPEC.md`, `DEVLOG.md`, `CLAUDE.md`, `README.md`
+- Blockers / decisions: DEC-005 and DEC-007 need a yes from the owner.
+- Next: **M0** scaffold, now including `crates/mc-ext`, `sdk/` and `extensions/` folders.
+
 ## B-0001 — 2026-10-17 — Clean repo + Tauri re-plan
 - Done:
   - Replaced the AutoHotkey v2 prototype and the abandoned Flutter launcher with a **Tauri v2 + Rust** plan, with a mobile companion to follow.
