@@ -1,0 +1,24 @@
+[package]
+name = "mc-sync"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "MouseComb account + sync client. Backend trait with a PocketBase adapter."
+
+[features]
+specta = ["dep:specta"]
+
+[dependencies]
+mc-core.workspace = true
+mc-store.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+reqwest.workspace = true
+log.workspace = true
+tokio = { workspace = true, features = ["time"] }
+specta = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio.workspace = true

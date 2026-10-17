@@ -1,0 +1,19 @@
+# Rust
+/target/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Tauri generated
+apps/desktop/src-tauri/gen/
+
+# Local data and secrets
+pb_data/
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db

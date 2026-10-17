@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "@mousecomb/ui/styles.css";
+
+/* Tailwind scans the shared component library for class names too. */
+@source "../../../packages/ui/src";
+
+/* A desktop window never scrolls as a whole; panes scroll inside it. */
+html,
+body {
+  overflow: hidden;
+}

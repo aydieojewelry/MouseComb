@@ -14,7 +14,7 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: pre-production          # see §13 for versioning rules
-build: B-0003                  # manual build counter until production
+build: B-0004                  # manual build counter until production
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -30,18 +30,19 @@ targets:
 | UI framework | **React 19 + TypeScript + Vite** (DEC-001) | Largest ecosystem, shared by desktop, mobile and extension views |
 | UI components | **Ark UI** (React components built on **Zag.js** state machines); raw `@zag-js/*` machines for custom widgets | Accessible, keyboard-complete, predictable state; headless so it takes our design |
 | Styling | Tailwind CSS v4 with MouseComb tokens as CSS variables | Fast to build, themeable, tiny output |
-| Icons | Fluent UI System Icons | Native Windows 11 look |
+| Icons | Small built-in set in `packages/ui` (Fluent line style) | Native look without a multi-megabyte icon package |
 | Routing | **TanStack Router** | Type-safe routes and search params, one route per window |
 | Live data | **TanStack DB** collections backed by the Rust store; **TanStack Query** for one-off calls | Live queries and optimistic edits; the Rust core stays the source of truth |
 | Tables & lists | **TanStack Table** + **TanStack Virtual** | Bindings table, action log, OmniBar and clipboard lists with thousands of rows |
 | Forms | **TanStack Form** + Zod 4 | Settings and extension-settings forms, generated from schemas |
 | Timing | **TanStack Pacer** | Debounced saves, throttled live previews |
 | Rust ↔ TS types | `tauri-specta` | Commands and events are typed end to end, no hand-written glue |
-| Local data | SQLite (`rusqlite`) in `mc-store` | Same database file format on every device; change log for sync |
-| Sync | `mc-sync`: end-to-end encrypted, per-record last-writer-wins | Share data between desktop and mobile; server only sees encrypted blobs |
+| Local data | SQLite (`rusqlite`, bundled) in `mc-store` | Same database file format on every device; dirty flags for sync |
+| Backend | **PocketBase v0.40** embedded as a Go framework (`services/pocketbase`) (DEC-010) | Free, open source, one small binary with auth, REST and realtime; you own the data |
+| Sync | `mc-sync`: `Backend` trait + PocketBase adapter, per-record last-writer-wins | Same data on every PC and the phone; another backend (e.g. Firebase) plugs in behind the trait |
 | Extensions | TypeScript on embedded QuickJS (`rquickjs`), views written in JSX (DEC-005) | Easy to write, sandboxed, fast to start |
 | Weather | Open-Meteo REST (no API key) | In the bundled Weather extension |
-| Tests | `cargo test`, Vitest + Testing Library, WebDriver smoke tests on Windows | |
+| Tests | `cargo test` (incl. live backend tests), Vitest, Playwright screenshots of the UI with a mock backend | |
 
 ### Design tokens
 
@@ -92,7 +93,7 @@ graph TD
       CAT["Native action catalog (mc-win)"]
       HOST["Extension host (mc-ext)"]
       STORE["mc-store: SQLite + change log"]
-      SYNC["mc-sync: E2E sync client"]
+      SYNC["mc-sync: sync client"]
       LIC["mc-license"]
     end
     subgraph React["React (webviews)"]
@@ -105,8 +106,8 @@ graph TD
   RUN <--> HOST
   STORE --> BIND
   STORE <--> SYNC
-  SYNC <-- "encrypted changes" --> RELAY["Sync relay (services/sync)"]
-  RELAY <--> PHONE["Mobile app (apps/mobile)"]
+  SYNC <-- "items over HTTPS" --> PB["PocketBase backend (services/pocketbase)"]
+  PB <--> PHONE["Mobile app (apps/mobile)"]
   STORE <--> DB --> UIW
 ```
 
@@ -133,15 +134,15 @@ MouseComb/
 │  ├─ bindings/         # TypeScript types generated from Rust by tauri-specta
 │  └─ api/              # @mousecomb/api extension SDK + `mc` CLI
 ├─ crates/
-│  ├─ mc-core/          # no OS calls: model, binding resolver, workflow engine, manifests
-│  ├─ mc-store/         # SQLite schema, migrations, change log
-│  ├─ mc-sync/          # encryption, pairing, push/pull
-│  ├─ mc-license/       # license verification (offline + periodic refresh)
-│  ├─ mc-win/           # Windows hooks, SendInput, native action catalog
-│  └─ mc-ext/           # extension host: QuickJS sandbox, permissions, host API
-├─ extensions/          # bundled extensions (clock, pomodoro, weather, clipboard, snippets)
+│  ├─ mc-core/          # no OS calls: data model, merge rule, ids (later: binding resolver, workflow engine)
+│  ├─ mc-store/         # SQLite schema, migrations, dirty tracking
+│  ├─ mc-sync/          # Backend trait, PocketBase adapter, sync pass
+│  ├─ mc-license/       # (M7) license verification
+│  ├─ mc-win/           # (M1) Windows hooks, SendInput, native action catalog
+│  └─ mc-ext/           # (M4) extension host: QuickJS sandbox, permissions, host API
+├─ extensions/          # (M4) bundled extensions (clock, pomodoro, weather, clipboard, snippets)
 └─ services/
-   └─ sync/             # small sync relay (stores encrypted change logs only)
+   └─ pocketbase/       # the backend: auth, items, devices; deploy notes in its README
 ```
 
 ---
@@ -189,24 +190,29 @@ Windows are created at startup and hidden, so showing one is instant.
 ## 5. Data & sync (FEAT-020)
 
 ### What's stored where
-All user data lives in one SQLite database per device (`%APPDATA%\MouseComb\mousecomb.db` on Windows). Import/export as readable JSON stays available.
+All user data lives in one SQLite database per device (`%APPDATA%\com.mousecomb.app\mousecomb.db` on Windows). Import/export as readable JSON is planned.
 
 | Record type | Synced across devices? |
 |---|---|
 | Bindings, workflows, snippets | yes |
 | Settings | yes, except those marked **this device only** (HUD monitor, edge geometry, script paths, exclusions) |
 | Installed extensions list + their settings | yes (extensions install on each desktop by themselves) |
-| Clipboard history | **off by default**; opt-in, and then end-to-end encrypted like everything else |
+| Clipboard history | **off by default**; opt-in, and only once end-to-end encryption exists (DEC-014) |
 | Pomodoro sessions, action log | stats yes / log no |
 | License | no (per device, see §9) |
 
-### How sync works
-- Every record carries an ID, a hybrid-logical-clock timestamp and the device that last changed it. Merge rule: **last writer wins per record** (per field for settings). Deletes are kept as tombstones.
-- **End-to-end encrypted:** records are encrypted on the device (XChaCha20-Poly1305) with a key that never leaves your devices. The relay stores and forwards encrypted blobs only.
-- **Pairing:** the desktop shows a QR code, the phone scans it, and the key moves directly between them. A recovery phrase lets you restore on a new device.
-- **Transport:** push changes, pull changes, plus a WebSocket for "something changed" nudges. Works offline and catches up later.
-- **Relay:** `services/sync`, a small service that stores encrypted change logs per account (DEC-010).
-- Without Pro (§9): **export / import file**. With Pro: automatic cloud sync.
+### How sync works (built in B-0004)
+- **Backend:** one `items` collection in PocketBase holds every synced record of every user (`user`, `kind`, `key`, `data`, `mtime`, `deleted`, `device`). API rules let each account see and change only its own rows. New kinds (for example an extension's data) need no server change.
+- **Record ids** are derived from user + kind + key (`mc_core::remote_id`), so two devices that create the same setting write the same record.
+- **Merge rule: last writer wins per record**, by the editing device's `mtime`. Ties are settled by device id, so every device reaches the same answer. The server enforces it too: an update older than the stored copy is rejected with `409`. Deletes are tombstones.
+- **A sync pass:** pull everything changed since the last cursor (`updated`, `id`, keyset paging), merge it, then push local items marked dirty. Interrupted passes resume safely.
+- **When:** at startup, about 1.5 s after a local change, every 60 s, and on "Sync now". Edits made during a pass trigger another pass.
+- **Sign-in:** local data made while signed out (or with another account) is queued to join the account. Sign-out can keep or remove data on the PC.
+- **Session:** the sign-in token lives in Windows Credential Manager and refreshes daily; an expired session signs out with a clear message.
+- **Rate limits:** the server limits sign-in attempts; the client waits and retries, then shows "Too many attempts".
+- **Privacy today:** data is protected by HTTPS (in production) and per-account rules, but whoever runs the server can read it. End-to-end encryption, QR pairing and a recovery phrase come before clipboard sync ships (DEC-014).
+- **Free vs Pro:** sync is free during pre-production; Pro gating arrives with licensing in M7 (DEC-009).
+- **Realtime:** PocketBase's realtime subscriptions will replace the 60 s poll in a later build.
 
 ### Phone → desktop actions
 - The phone can ask a desktop to run a workflow or action. It writes a "run request" record, and the desktop receives it through sync.
@@ -220,13 +226,13 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 
 | ID | Feature | Milestone | Status |
 |---|---|---|---|
-| FEAT-000 | App shell: tray, autostart, single instance, store, windows pre-created | M0 | PLANNED |
+| FEAT-000 | App shell: tray, autostart, single instance, store, windows pre-created | M0 | IN_PROGRESS (all but extra windows) |
 | FEAT-008 | CapsLock Hyper-Key | M1 | PLANNED |
 | FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 | PLANNED |
 | FEAT-014 | Trigger & binding system (any trigger → any action, per-app conditions) | M1 | PLANNED |
 | FEAT-004 | OmniBar: command palette for every action, app and extension command | M2 | PLANNED |
 | FEAT-009 | Help modals, generated from the live bindings | M2 | PLANNED |
-| FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | PLANNED |
+| FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell, General with HUD preview, Snippets, Account, About) |
 | FEAT-015 | Workflows | M3 | PLANNED |
 | FEAT-016 | Extension host + SDK + permissions | M4 | PLANNED |
 | FEAT-018 | Script commands | M4 | PLANNED |
@@ -236,7 +242,7 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-011 | LMB-hold + scroll chord trigger (opt-in) | M5 | PLANNED |
 | FEAT-017 | Extension library (free, in-app store) | M6 | PLANNED |
 | FEAT-019 | Editions, licensing, purchase, account | M7 | PLANNED |
-| FEAT-020 | Data store + end-to-end encrypted sync | M0 (store) / M7 (sync) | PLANNED |
+| FEAT-020 | Data store, account and sync (E2E encryption later) | M0 | IN_PROGRESS (store, auth, sync done; realtime, E2E, export pending) |
 | FEAT-012 | Mobile app | M9 | PLANNED |
 | — | Window-management preset hotkeys (`Caps+P/M/G`) | — | DROPPED (window actions exist in the catalog, unbound) |
 | — | Middle-button drag gestures | — | DROPPED (conflicts with autoscroll and panning) |
@@ -249,7 +255,7 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-002 | `mc.pomodoro` | HUD widget, start/pause/reset actions, toast, synced sessions | notifications |
 | FEAT-003 | `mc.weather` | HUD widget, refresh action | network: api.open-meteo.com |
 | FEAT-005a | `mc.clipboard` | `Caps+V` view, history, paste action | clipboard:read, keys:send |
-| FEAT-005b | `mc.snippets` | snippet list, insert action, `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` tokens | clipboard:write, keys:send |
+| FEAT-005b | `mc.snippets` | snippet list, insert action, `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` tokens (data + editor built in B-0004 as core) | clipboard:write, keys:send |
 
 ---
 
@@ -422,7 +428,7 @@ Restart-Service Audiosrv
 | Destructive commands | `needs confirmation` flag, an OmniBar confirm step, a red badge in bindings. |
 | Malicious library extension | Open source, CI checks, human review for high-risk permissions, hash-verified installs, one-click disable. |
 | Stuck keys / runaway workflow | Input rules in §3, `Caps+Pause`, `mc.workflow.stop_all`. |
-| Your data on our server | End-to-end encrypted; the relay can't read bindings, snippets or clipboard. Clipboard sync is off by default. |
+| Your data on the server | Today: HTTPS and per-account access rules; the server operator could read it. End-to-end encryption before clipboard sync and 1.0 (DEC-014). Clipboard sync stays off until then. |
 | Phone used to run things on your PC | Only workflows marked "Allow from phone"; desktop toast + log for every request; unpair a device in one click. |
 | License server down | Offline verification with a grace period; core features never depend on the license (§9). |
 | Elevated windows | DEC-002. Shown clearly rather than failing silently. |
@@ -502,14 +508,14 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
 
 | M | Scope | Exit check |
 |---|---|---|
-| M0 | Monorepo (pnpm + Cargo), `apps/desktop` (Tauri + React + TanStack Router), `packages/ui` (tokens + first Ark components), `mc-store` (SQLite + migrations), tray, single instance, pre-created windows, typed commands via tauri-specta | `pnpm tauri dev` runs on Windows; a setting changed in Settings survives restart |
+| M0 ✓ | Monorepo (pnpm + Cargo), `apps/desktop` (Tauri + React + TanStack Router), `packages/ui`, `mc-store`, tray, single instance, typed commands via tauri-specta. **Pulled forward from M7:** PocketBase backend, account, sync | Verified B-0004 in the real app on Linux + Windows cross-compile; needs a first run on Windows |
 | M1 | Hook thread, Hyper-Key, action registry, first native actions, binding resolver with app conditions, global pause | No stuck keys in a 30-min stress session; 30+ native actions bindable |
 | M2 | OmniBar, help modals, Settings: bindings table + recorder (TanStack DB/Table/Form) | Any action findable in OmniBar and bindable without editing a file |
 | M3 | Workflows: runner + step editor | "Focus mode" example runs end to end |
 | M4 | Extension host, SDK + CLI, JSX views, permissions, script commands, HUD host; bundled five | All five bundled extensions built only on the public API |
 | M5 | Gesture, edge and chord triggers + visual Settings | RMB menus still work with RMB-drag on; every edge setting previewable |
 | M6 | Extension library repo, CI, in-app Library | Install, update, disable; permission re-approval works |
-| M7 | Accounts, licensing, purchase flow, E2E sync + relay | Two Windows PCs stay in sync; license works offline for 30 days |
+| M7 | Licensing, purchase flow, Pro gating, E2E encryption + QR pairing | License works offline for 30 days; server can't read synced data |
 | M8 | Hardening → **production 1.0**: signed installer, updater, crash reports, docs, store listing | See §13 |
 | M9 | Mobile app (Android first, then iOS) | Pair by QR, edit a binding on the phone, run "Focus mode" on the PC |
 
@@ -546,7 +552,9 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 | DEC-007 | Window actions in the catalog, unbound | Keep, unbound |
 | DEC-008 | Shell: Tauri + plugins vs. a native WinUI 3 (C#) shell | **Tauri v2 + plugins** with Mica/Acrylic, native tray, toasts and Fluent icons. A WinUI shell would split the code from mobile and React |
 | DEC-009 | Pricing model | Free forever + Pro (yearly, with a lifetime option). Prices TBD |
-| DEC-010 | Sync relay hosting | Small serverless service (e.g. Cloudflare Workers + Durable Objects) storing encrypted change logs |
+| DEC-010 | Backend | **PocketBase, decided B-0004.** Free 24/7 hosting: Google Cloud e2-micro or Oracle Always Free VM (see `services/pocketbase/README.md`). Firebase stays possible behind the `Backend` trait |
 | DEC-011 | Mobile framework | Tauri v2 mobile (max code reuse). Alternative: React Native / Expo (more native feel, less reuse) |
 | DEC-012 | Paid extensions in the Library | Not in v1 |
 | DEC-013 | Merchant of record | Pick after confirming payouts to Pakistan: Paddle, Lemon Squeezy or FastSpring |
+| DEC-014 | When end-to-end encryption lands | Before clipboard sync and before 1.0 (M7). Until then the server operator can read synced data |
+| DEC-015 | Where the HUD fade distance is measured from | The HUD's edges (shown in the Settings preview) |

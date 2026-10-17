@@ -13,6 +13,22 @@ Template:
 
 ---
 
+## B-0004 — 2026-10-17 — First code: app shell, PocketBase backend, sync
+- Done:
+  - **Backend (DEC-010 → PocketBase):** `services/pocketbase`, PocketBase v0.40.4 embedded in Go. Collections `users`, `items` (every synced record, told apart by `kind`), `devices`; owner-only API rules; server hook rejects older writes (409) and owner/kind/key changes; sign-in rate limits on. Deploy notes for free 24/7 hosting.
+  - **Rust:** Cargo workspace. `mc-core` (Item model, last-writer-wins merge, stable record ids), `mc-store` (SQLite, dirty tracking, tombstones, device id, device-only settings), `mc-sync` (`Backend` trait, PocketBase adapter with 429 retry and friendly errors, keyset-paged pull + push).
+  - **Desktop shell (Tauri 2.12):** tray menu, single instance, start with Windows (`--minimized`), close-to-tray, session in Windows Credential Manager, background sync (start, after changes, every 60 s, Sync now), daily token refresh. 15 typed commands + 3 events exported to `packages/bindings` with tauri-specta.
+  - **React:** `packages/ui` (tokens as Tailwind v4 theme, Ark UI Button/TextField/TextArea/Switch/Slider/Dialog/Toaster, in-house icons), `packages/data` (TanStack DB collections over Rust items, Query hooks for account and sync, mock backend for tests and browser preview), `apps/desktop` (TanStack Router: General with live HUD preview, Snippets with virtualized list + TanStack Form editor, Account & sync, About).
+  - pnpm only installs package versions at least 14 days old (`minimumReleaseAge`).
+- Verified:
+  - `cargo test --workspace`: 20 tests, including 4 against a live PocketBase (two devices, concurrent edits, stale writes, account isolation, auth errors). Clippy clean. `go vet` clean.
+  - Vitest: 6 tests. `tsc` clean. Production build has no mock code.
+  - Real app on Linux (WebKitGTK, Xvfb) driven with xdotool: offline snippet uploaded on sign-in, device registered, remote snippet + extension setting arrived after Sync now.
+  - `cargo check --target x86_64-pc-windows-gnu` passes (tray, Credential Manager code).
+- Not verified: running on real Windows (WebView2, tray, Credential Manager, autostart).
+- Workarounds: specta-typescript 0.0.12 loops on recursive `serde_json::Value`, so JSON fields export as `unknown` (validated with Zod in the UI). Fluent icon package dropped for size.
+- Next: first run on Windows; then **M1** (hook thread, Hyper-Key, action registry, bindings).
+
 ## B-0003 — 2026-10-17 — React + Ark/Zag + TanStack, sync, Pro edition
 - Done:
   - UI framework switched from Svelte to **React 19** (DEC-001). Components: **Ark UI** (Zag.js state machines), raw `@zag-js/*` for custom widgets, Tailwind v4 tokens, Fluent icons.
