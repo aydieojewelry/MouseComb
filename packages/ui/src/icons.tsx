@@ -60,6 +60,10 @@ export const InfoIcon = make(
 
 export const AddIcon = make(<path d="M10 4v12M4 10h12" />);
 
+export const MinusIcon = make(<path d="M4 10h12" />);
+
+export const ChevronLeftIcon = make(<path d="M12 4 6 10l6 6" />);
+
 export const DeleteIcon = make(
   <>
     <path d="M4 6h12M8.5 6V4.5h3V6M5.5 6l.8 9.2a1.5 1.5 0 0 0 1.5 1.3h4.4a1.5 1.5 0 0 0 1.5-1.3L14.5 6" />

@@ -6,7 +6,12 @@
   --color-idle: #000000;
   --color-surface: #0e0e10;
   --color-raised: #18181b;
+  --color-card: #121214;
+  --color-face: #141417;
+  --color-button: #1c1c20;
+  --color-selected: #2e2e34;
   --color-line: #2a2a30;
+  --color-tick: #45454e;
   --color-fg: #ffffff;
   --color-muted: #888890;
   --color-accent: #ff7a00;

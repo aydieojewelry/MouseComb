@@ -15,6 +15,20 @@ import { cx } from "./cx";
 export * from "./icons";
 export { cx } from "./cx";
 export { CommandPalette, type PaletteItem } from "./palette";
+export { ChoiceGroup, RoundButton, Stepper, type Choice } from "./controls";
+export { TimerDial, dialMarks } from "./dial";
+export {
+  ClockFace,
+  clockParts,
+  DIAL_FACES,
+  DIGITAL_FACES,
+  FACE_NAMES,
+  faceSize,
+  handAngles,
+  type ClockLook,
+  type DialFace,
+  type DigitalFace,
+} from "./clock";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -95,6 +109,8 @@ export function TextArea({
 
 export function Switch(props: {
   label: ReactNode;
+  /** Only screen readers get the label (a title next to the switch already says it). */
+  hideLabel?: boolean;
   description?: ReactNode;
   checked: boolean;
   disabled?: boolean;
@@ -107,7 +123,7 @@ export function Switch(props: {
       onCheckedChange={(e) => props.onCheckedChange(e.checked)}
       className="flex cursor-pointer items-center justify-between gap-6 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
     >
-      <span className="flex flex-col gap-0.5">
+      <span className={props.hideLabel ? "sr-only" : "flex flex-col gap-0.5"}>
         <ArkSwitch.Label className="text-sm text-fg">{props.label}</ArkSwitch.Label>
         {props.description && <span className="text-xs text-muted">{props.description}</span>}
       </span>
@@ -209,17 +225,28 @@ export function Toaster() {
   );
 }
 
-/** A titled group of settings rows. */
-export function Section(props: { title: string; description?: ReactNode; children: ReactNode; aside?: ReactNode }) {
+/** A group of settings rows, with a title or (for a card without one) a `label` for screen readers. */
+export function Section(props: {
+  title?: string;
+  label?: string;
+  description?: ReactNode;
+  children: ReactNode;
+  aside?: ReactNode;
+}) {
   return (
-    <section className="flex flex-col gap-4 rounded-modal border border-line bg-idle/40 p-5">
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="font-display text-base font-semibold">{props.title}</h2>
-          {props.description && <p className="max-w-prose text-sm text-muted">{props.description}</p>}
-        </div>
-        {props.aside}
-      </header>
+    <section
+      aria-label={props.title ? undefined : props.label}
+      className="flex flex-col gap-4 rounded-modal border border-line bg-card p-5"
+    >
+      {(props.title || props.aside) && (
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            {props.title && <h2 className="font-display text-base font-semibold">{props.title}</h2>}
+            {props.description && <p className="max-w-prose text-sm text-muted">{props.description}</p>}
+          </div>
+          {props.aside}
+        </header>
+      )}
       {props.children}
     </section>
   );
@@ -236,9 +263,16 @@ export function StatusDot(props: { tone: keyof typeof dotColor; pulse?: boolean 
   );
 }
 
-export function Kbd(props: { children: ReactNode }) {
+export function Kbd(props: { children: ReactNode; size?: "sm" | "lg" }) {
   return (
-    <kbd className="rounded border border-line border-b-2 bg-raised px-1.5 py-0.5 font-mono text-xs text-fg">
+    <kbd
+      className={cx(
+        "border border-line font-mono text-fg",
+        props.size === "lg"
+          ? "flex h-13 min-w-14 items-center justify-center rounded-[10px] border-b-4 bg-button px-3.5 text-base font-semibold"
+          : "rounded border-b-2 bg-raised px-1.5 py-0.5 text-xs",
+      )}
+    >
       {props.children}
     </kbd>
   );
@@ -272,28 +306,25 @@ export function shortcutFromEvent(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "a
 }
 
 /** A shortcut such as `Ctrl+Shift+K` as key caps (`Super` shows as Win). */
-export function ShortcutKeys(props: { shortcut: string; separator?: ReactNode }) {
+export function ShortcutKeys(props: { shortcut: string; separator?: ReactNode; size?: "sm" | "lg" }) {
   const keys = props.shortcut.split("+").map((k) => (k === "Super" ? "Win" : k));
   return (
     <>
       {keys.map((k, i) => (
-        <span key={k}>
+        <span key={k} className={props.size === "lg" ? "flex items-center gap-2" : undefined}>
           {i > 0 && props.separator}
-          <Kbd>{k}</Kbd>
+          <Kbd size={props.size}>{k}</Kbd>
         </span>
       ))}
     </>
   );
 }
 
-/** Shows a shortcut as key caps; click, then press keys to record a new one. */
-export function HotkeyField(props: {
-  label: string;
-  value: string;
-  description?: ReactNode;
-  error?: string | null;
-  onChange: (shortcut: string) => void;
-}) {
+/**
+ * Record a shortcut on a button: click it, press keys. Esc cancels; leaving
+ * the button stops recording. Spread `buttonProps` on the button.
+ */
+export function useShortcutRecorder(onChange: (shortcut: string) => void) {
   const [recording, setRecording] = useState(false);
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (!recording) return;
@@ -306,9 +337,24 @@ export function HotkeyField(props: {
     const shortcut = shortcutFromEvent(e);
     if (shortcut) {
       setRecording(false);
-      props.onChange(shortcut);
+      onChange(shortcut);
     }
   };
+  return {
+    recording,
+    buttonProps: { onClick: () => setRecording(!recording), onKeyDown, onBlur: () => setRecording(false) },
+  };
+}
+
+/** Shows a shortcut as key caps; click, then press keys to record a new one. */
+export function HotkeyField(props: {
+  label: string;
+  value: string;
+  description?: ReactNode;
+  error?: string | null;
+  onChange: (shortcut: string) => void;
+}) {
+  const { recording, buttonProps } = useShortcutRecorder(props.onChange);
   return (
     <div className="flex items-center justify-between gap-6">
       <span className="flex flex-col gap-0.5">
@@ -322,9 +368,7 @@ export function HotkeyField(props: {
       </span>
       <button
         type="button"
-        onClick={() => setRecording(!recording)}
-        onKeyDown={onKeyDown}
-        onBlur={() => setRecording(false)}
+        {...buttonProps}
         aria-label={recording ? "Press the new shortcut, or Escape to cancel" : `${props.label}: ${props.value}. Click to change.`}
         className={cx(
           "flex h-9 min-w-36 shrink-0 items-center justify-center gap-1 rounded-lg border px-3 text-sm transition-colors",

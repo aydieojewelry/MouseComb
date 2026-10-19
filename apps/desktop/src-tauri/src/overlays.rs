@@ -6,10 +6,11 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
+use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, WebviewWindow};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_specta::Event;
 
+use crate::prefs::HudStyle;
 use crate::state::{AppState, HudRect};
 
 pub const MAIN: &str = "main";
@@ -32,9 +33,12 @@ pub struct HotkeyStatus {
     pub message: Option<String>,
 }
 
-/// The OmniBar was just shown: clear the input and focus it.
+/// The OmniBar was just shown: clear the input and focus it. `view` asks
+/// for a view instead of the result list (`mc_core::actions::OMNIBAR_VIEWS`).
 #[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
-pub struct OmniBarOpened;
+pub struct OmniBarOpened {
+    pub view: Option<String>,
+}
 
 /// HUD opacity from the cursor's distance (proximity fade), 0 to 1.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
@@ -81,14 +85,16 @@ pub fn toggle_omnibar(app: &AppHandle) {
     if w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false) {
         let _ = w.hide();
     } else {
-        show_omnibar(app);
+        show_omnibar(app, None);
     }
 }
 
-/// Show the OmniBar near the top of the screen the mouse is on.
-pub fn show_omnibar(app: &AppHandle) {
+/// Show the OmniBar near the top of the screen the mouse is on, on `view`
+/// or the result list. Already open, it stays where it is and switches view.
+pub fn show_omnibar(app: &AppHandle, view: Option<&str>) {
     let Some(w) = app.get_webview_window(OMNIBAR) else { return };
-    if let Ok(cursor) = app.cursor_position()
+    if !w.is_visible().unwrap_or(false)
+        && let Ok(cursor) = app.cursor_position()
         && let Ok(Some(monitor)) = app.monitor_from_point(cursor.x, cursor.y)
         && let Ok(size) = w.outer_size()
     {
@@ -100,7 +106,7 @@ pub fn show_omnibar(app: &AppHandle) {
     *app.state::<AppState>().omnibar_shown_at.lock().expect("omnibar lock") = Some(Instant::now());
     let _ = w.show();
     let _ = w.set_focus();
-    let _ = OmniBarOpened.emit_to(app, OMNIBAR);
+    let _ = OmniBarOpened { view: view.map(str::to_owned) }.emit_to(app, OMNIBAR);
     crate::apps::refresh_if_stale(app);
 }
 
@@ -130,21 +136,31 @@ fn hud(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window(HUD)
 }
 
-/// The HUD's size in logical pixels, from tauri.conf.json. Placing by the
-/// configured size works before the window exists natively (Linux creates
-/// it only when shown); the HUD page draws from the top edge, so a window
-/// the OS made taller still shows the clock in the right spot.
-fn hud_size(app: &AppHandle) -> (f64, f64) {
-    app.config().app.windows.iter().find(|w| w.label == HUD).map_or((220.0, 76.0), |w| (w.width, w.height))
+/// The HUD window's size in logical pixels for each clock style: a status
+/// line (Pomodoro, flashes) above a 150×58 digital or 96×96 analog face.
+/// `HUD_WINDOW` in `apps/desktop/src/hud/HudPage.tsx` matches it. Placing by
+/// this known size works before the window exists natively (Linux creates it
+/// only when shown, and never smaller than 200×200; the page then draws in
+/// this box at the top-left, so the clock still sits in the corner).
+pub fn hud_size(style: HudStyle) -> (f64, f64) {
+    match style {
+        HudStyle::Digital => (160.0, 90.0),
+        HudStyle::Analog => (128.0, 128.0),
+    }
 }
 
-/// Move the HUD to the bottom-right of the primary screen's work area
-/// (above the taskbar) and return where it is now.
+fn current_hud_size(app: &AppHandle) -> (f64, f64) {
+    hud_size(app.state::<AppState>().prefs.read().expect("prefs lock").hud_style)
+}
+
+/// Size the HUD for the current clock style, move it to the bottom-right of
+/// the primary screen's work area (above the taskbar) and return where it is now.
 fn place_hud(app: &AppHandle) -> Option<HudRect> {
     let w = hud(app)?;
     let monitor = app.primary_monitor().ok()??;
     let scale = monitor.scale_factor();
-    let (width, height) = hud_size(app);
+    let (width, height) = current_hud_size(app);
+    let _ = w.set_size(LogicalSize::new(width, height));
     let (width, height) = (width * scale, height * scale);
     let area = monitor.work_area();
     let margin = HUD_MARGIN * scale;
@@ -154,6 +170,7 @@ fn place_hud(app: &AppHandle) -> Option<HudRect> {
     Some(HudRect { left, top, right: left + width, bottom: top + height, scale })
 }
 
+/// Show or hide the HUD; showing it again also applies a new clock style.
 pub fn set_hud_visible(app: &AppHandle, visible: bool) {
     let Some(w) = hud(app) else { return };
     let state = app.state::<AppState>();

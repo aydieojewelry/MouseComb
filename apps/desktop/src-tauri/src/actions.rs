@@ -6,14 +6,14 @@ use mc_core::actions::{self, id};
 use serde::Serialize;
 use serde_json::Value;
 use specta::Type;
-use tauri::{AppHandle, Manager, WebviewWindow};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::Event;
 
 use crate::commands::Json;
 use crate::error::{CommandError, CommandResult, ErrorCode};
-use crate::overlays::{self, HudFlash, OMNIBAR};
+use crate::overlays::{self, HudFlash};
 use crate::state::AppState;
 use crate::{pomodoro, prefs, sync_loop, updates};
 
@@ -29,20 +29,12 @@ impl ActionResult {
     }
 }
 
-/// Run an action. From the OmniBar, it closes once the action succeeds.
+/// Run an action. The OmniBar closes itself after a command from its list
+/// (`omnibar_hide`) and stays open for its timer view's buttons.
 #[tauri::command]
 #[specta::specta]
-pub async fn action_run(
-    app: AppHandle,
-    window: WebviewWindow,
-    action: String,
-    args: Json,
-    confirmed: bool,
-) -> CommandResult<ActionResult> {
+pub async fn action_run(app: AppHandle, action: String, args: Json, confirmed: bool) -> CommandResult<ActionResult> {
     let result = run(&app, &action, &args.0, confirmed).await?;
-    if window.label() == OMNIBAR {
-        overlays::hide_omnibar(&app);
-    }
     if let Some(text) = &result.message {
         let _ = HudFlash { text: text.clone() }.emit_to(&app, overlays::HUD);
     }
@@ -70,7 +62,13 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
 
     match action {
         id::OMNIBAR_OPEN => {
-            overlays::show_omnibar(app);
+            let view = with.get("view").and_then(Value::as_str);
+            if let Some(view) = view
+                && !actions::OMNIBAR_VIEWS.contains(&view)
+            {
+                return Err(CommandError::new(ErrorCode::Validation, format!("The OmniBar has no view \"{view}\".")));
+            }
+            overlays::show_omnibar(app, view);
             Ok(ActionResult::default())
         }
         id::SETTINGS_OPEN => {
@@ -110,6 +108,19 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
             let current = prefs::setting(store, key).and_then(|v| v.as_bool()).unwrap_or(default);
             store.put(mc_core::kind::SETTING, key, Value::Bool(!current))?;
             Ok(ActionResult::default())
+        }
+        id::POMODORO_EXTEND => {
+            let minutes = match with.get("minutes") {
+                None | Some(Value::Null) => actions::DEFAULT_EXTEND_MIN,
+                Some(v) => v
+                    .as_u64()
+                    .filter(|m| (1..=60).contains(m))
+                    .and_then(|m| u32::try_from(m).ok())
+                    .ok_or_else(|| CommandError::new(ErrorCode::Validation, "Add 1 to 60 minutes."))?,
+            };
+            let timer = pomodoro::update(app, |p, now, _| p.extend(minutes, now));
+            let left = (timer.remaining(crate::now_ms()) + 59_999) / 60_000;
+            Ok(ActionResult::say(format!("+{minutes} min · {left} min left")))
         }
         id::POMODORO_START | id::POMODORO_PAUSE | id::POMODORO_TOGGLE | id::POMODORO_SKIP | id::POMODORO_RESET => {
             let timer = pomodoro::update(app, |p, now, cfg| match action {

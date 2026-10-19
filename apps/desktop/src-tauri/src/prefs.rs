@@ -12,12 +12,22 @@ pub const OMNIBAR_HOTKEY: &str = "omnibar.hotkey";
 pub const DEFAULT_OMNIBAR_HOTKEY: &str = "Alt+Space";
 pub const HUD_ENABLED: &str = "hud.enabled";
 pub const HUD_SHOW_SECONDS: &str = "hud.show_seconds";
+pub const HUD_STYLE: &str = "hud.style";
 pub const POMODORO_AUTO_START: &str = "pomodoro.auto_start";
+
+/// The clock's look (`hud.style`); the HUD window is sized for it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HudStyle {
+    #[default]
+    Digital,
+    Analog,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Prefs {
     pub omnibar_hotkey: String,
     pub hud_enabled: bool,
+    pub hud_style: HudStyle,
     pub hud_fade_near_px: f64,
     pub hud_fade_far_px: f64,
     pub pomodoro: pomodoro::Config,
@@ -28,6 +38,7 @@ impl Default for Prefs {
         Self {
             omnibar_hotkey: DEFAULT_OMNIBAR_HOTKEY.to_owned(),
             hud_enabled: true,
+            hud_style: HudStyle::Digital,
             hud_fade_near_px: 60.0,
             hud_fade_far_px: 220.0,
             pomodoro: pomodoro::Config::default(),
@@ -64,6 +75,10 @@ impl Prefs {
                 .filter(|s| !s.trim().is_empty())
                 .map_or(d.omnibar_hotkey, str::to_owned),
             hud_enabled: get(HUD_ENABLED).and_then(Value::as_bool).unwrap_or(d.hud_enabled),
+            hud_style: match get(HUD_STYLE).and_then(Value::as_str) {
+                Some("analog") => HudStyle::Analog,
+                _ => HudStyle::Digital,
+            },
             hud_fade_near_px: int("hud.fade_near_px", 0, 400).map_or(d.hud_fade_near_px, |n| n as f64),
             hud_fade_far_px: int("hud.fade_far_px", 40, 800).map_or(d.hud_fade_far_px, |n| n as f64),
             pomodoro: pomodoro::Config {
@@ -90,8 +105,10 @@ mod tests {
         store.put(kind::SETTING, "pomodoro.focus_min", json!(50)).unwrap();
         store.put(kind::SETTING, "pomodoro.short_break_min", json!(999)).unwrap();
         store.put(kind::SETTING, HUD_ENABLED, json!(false)).unwrap();
+        store.put(kind::SETTING, HUD_STYLE, json!("analog")).unwrap();
         let p = Prefs::load(&store);
         assert_eq!(p.omnibar_hotkey, "Ctrl+Alt+K");
+        assert_eq!(p.hud_style, HudStyle::Analog);
         assert_eq!((p.pomodoro.focus_min, p.pomodoro.short_break_min), (50, 5));
         assert!(!p.hud_enabled);
     }

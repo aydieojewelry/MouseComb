@@ -1,13 +1,10 @@
 import { events } from "@mousecomb/bindings";
-import { formatClock, isRunning, PHASE_LABEL, remainingMs, SETTINGS, useBackendEvent, usePomodoro, useSetting } from "@mousecomb/data";
-import { cx } from "@mousecomb/ui";
+import { formatClock, isRunning, PHASE_LABEL, remainingMs, useBackendEvent, usePomodoro } from "@mousecomb/data";
+import { ClockFace, cx } from "@mousecomb/ui";
 import { useRef, useState } from "react";
 
+import { useClockLook } from "../components/useClockLook";
 import { useNow } from "../components/useNow";
-
-const timeWithSeconds = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
-const timeWithoutSeconds = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
-const dateFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short" });
 
 /** A short message from an action ("Copied"), shown for 1.8 s. */
 function useFlash() {
@@ -22,12 +19,19 @@ function useFlash() {
 }
 
 /**
- * The HUD window (FEAT-001): clock, date and the Pomodoro countdown in the
- * screen corner. Click-through; fades as the mouse comes near (DEC-015).
- * Drawn from the window's top edge: Rust places the window by its configured size.
+ * The window size for each clock style, as Rust sets it (`overlays::hud_size`).
+ * The page draws in a box this size at the window's top-left: a window the
+ * OS made bigger (Linux) then still shows the clock where Rust placed it.
+ */
+const HUD_WINDOW = { digital: { width: 160, height: 90 }, analog: { width: 128, height: 128 } } as const;
+
+/**
+ * The HUD window (FEAT-001): the clock face you picked, with a status line
+ * above it for the Pomodoro countdown and action flashes. Click-through;
+ * fades as the mouse comes near (DEC-015).
  */
 export function HudPage() {
-  const [showSeconds] = useSetting(SETTINGS.hudShowSeconds);
+  const { look, showSeconds } = useClockLook();
   const { data: timer } = usePomodoro();
   const running = timer ? isRunning(timer) : false;
   const paused = Boolean(timer && !running && !timer.fresh);
@@ -37,23 +41,25 @@ export function HudPage() {
   useBackendEvent(events.hudFade, (e) => setOpacity(e.opacity));
   const flash = useFlash();
 
+  const pill = "flex h-5 max-w-full items-center gap-1.5 truncate rounded-full bg-idle/85 px-2 text-[11px] font-medium tabular-nums";
   return (
-    <div className="flex h-full items-start justify-end p-1" style={{ opacity, transition: "opacity 120ms linear" }}>
-      <div className="flex min-w-36 flex-col items-end gap-0.5 rounded-hud bg-idle/90 px-4 py-2.5 shadow-lg">
-        <div className="font-display text-[26px] font-semibold leading-none tabular-nums text-fg">
-          {(showSeconds ? timeWithSeconds : timeWithoutSeconds).format(now)}
-        </div>
+    <div
+      className="flex flex-col items-end gap-1 p-1"
+      style={{ ...HUD_WINDOW[look.style], opacity, transition: "opacity 120ms linear" }}
+    >
+      <div className="flex h-5 max-w-full justify-end">
         {flash ? (
-          <div className="text-xs font-medium text-accent">{flash}</div>
+          <span className={cx(pill, "text-accent")}>{flash}</span>
         ) : timer && (running || paused) ? (
-          <div className={cx("flex items-center gap-1.5 text-xs tabular-nums", running ? "text-accent" : "text-muted")}>
-            <span aria-hidden className={cx("size-1.5 rounded-full", running ? "bg-accent" : "bg-muted")} />
+          <span className={cx(pill, running ? "text-accent" : "text-muted")}>
+            <span aria-hidden className={cx("size-1.5 shrink-0 rounded-full", running ? "bg-accent" : "bg-muted")} />
             {PHASE_LABEL[timer.phase]} {formatClock(remainingMs(timer, now))}
             {paused && " · paused"}
-          </div>
-        ) : (
-          <div className="text-xs text-muted">{dateFormat.format(now)}</div>
-        )}
+          </span>
+        ) : null}
+      </div>
+      <div className="drop-shadow-[0_6px_14px_rgba(0,0,0,0.45)]">
+        <ClockFace look={look} date={new Date(now)} showSeconds={showSeconds} />
       </div>
     </div>
   );

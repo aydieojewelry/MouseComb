@@ -7,6 +7,8 @@
 use serde::{Deserialize, Serialize};
 
 const MINUTE_MS: i64 = 60_000;
+/// [`Pomodoro::extend`] never leaves more than this much time in a phase.
+pub const MAX_REMAINING_MS: i64 = 180 * MINUTE_MS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -141,6 +143,18 @@ impl Pomodoro {
         self.enter(next, now, config, keep_running);
     }
 
+    /// Add time to the current phase, running or not, up to [`MAX_REMAINING_MS`].
+    /// The phase now has its own length, so new durations no longer replace it.
+    pub fn extend(&mut self, minutes: u32, now: i64) {
+        let added = (i64::from(minutes) * MINUTE_MS).min(MAX_REMAINING_MS - self.remaining(now)).max(0);
+        match &mut self.ends_at {
+            Some(end) => *end += added,
+            None => self.remaining_ms += added,
+        }
+        self.total_ms += added;
+        self.fresh = false;
+    }
+
     /// New durations take effect for a phase that hasn't started yet.
     pub fn apply_config(&mut self, config: &Config) {
         if self.fresh && !self.running() {
@@ -265,6 +279,22 @@ mod tests {
         p.start(0);
         p.apply_config(&cfg);
         assert_eq!(p.remaining(0), 50 * M, "a started phase keeps its length");
+    }
+
+    #[test]
+    fn extend_adds_time_running_or_paused_and_keeps_it() {
+        let cfg = Config::default();
+        let mut p = Pomodoro::new(&cfg);
+        p.extend(5, 0);
+        assert_eq!((p.remaining(0), p.total_ms), (30 * M, 30 * M));
+        p.apply_config(&Config { focus_min: 50, ..cfg });
+        assert_eq!(p.remaining(0), 30 * M, "an extended phase keeps its length");
+        p.start(0);
+        p.extend(5, 10 * M);
+        assert_eq!((p.remaining(10 * M), p.total_ms), (25 * M, 35 * M));
+        p.extend(500, 10 * M);
+        assert_eq!(p.remaining(10 * M), MAX_REMAINING_MS, "capped");
+        assert!(p.tick(10 * M + MAX_REMAINING_MS - 1, &cfg).is_none());
     }
 
     #[test]

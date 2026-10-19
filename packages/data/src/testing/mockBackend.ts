@@ -56,7 +56,9 @@ const CATALOG: Command[] = [
   cmd("mc.update.check", "mc.update.check", null, "Check for updates", "MouseComb", ["upgrade"], "mouse_comb"),
   cmd("setting.toggle:hud.enabled", "setting.toggle", { key: "hud.enabled" }, "Show or hide the clock", "HUD", ["hud", "clock"], "mouse_comb"),
   cmd("mc.quit", "mc.quit", null, "Quit MouseComb", "MouseComb", ["exit"], "mouse_comb"),
+  cmd("mc.omnibar.open:pomodoro", "mc.omnibar.open", { view: "pomodoro" }, "Pomodoro timer", "Pomodoro", ["timer", "focus", "countdown"], "pomodoro"),
   cmd("ext.mc.pomodoro.toggle", "ext.mc.pomodoro.toggle", null, "Start or pause Pomodoro", "Pomodoro", ["timer", "focus"], "pomodoro"),
+  cmd("ext.mc.pomodoro.extend", "ext.mc.pomodoro.extend", null, "Add 5 minutes to Pomodoro", "Pomodoro", ["more time", "extend"], "pomodoro"),
   cmd("ext.mc.pomodoro.skip", "ext.mc.pomodoro.skip", null, "Skip to the next Pomodoro phase", "Pomodoro", ["break"], "pomodoro"),
   cmd("ext.mc.pomodoro.reset", "ext.mc.pomodoro.reset", null, "Reset Pomodoro", "Pomodoro", ["stop"], "pomodoro"),
   cmd("core.os.settings.open:display", "core.os.settings.open", { page: "display" }, "Display settings", "Windows Settings", ["screen"], "windows"),
@@ -142,6 +144,18 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
         }
         setPomodoro({ fresh: false, ends_at: now + pomodoro.remaining_ms, started_at: pomodoro.started_at ?? now });
         return { message: "Focus started" };
+      case "ext.mc.pomodoro.extend": {
+        const added = 5 * MINUTE;
+        setPomodoro(
+          pomodoro.ends_at !== null
+            ? { ends_at: pomodoro.ends_at + added, total_ms: pomodoro.total_ms + added, fresh: false }
+            : { remaining_ms: pomodoro.remaining_ms + added, total_ms: pomodoro.total_ms + added, fresh: false },
+        );
+        return { message: "+5 min" };
+      }
+      case "mc.omnibar.open":
+        void emit("omni-bar-opened", { view: typeof args.view === "string" ? args.view : null });
+        return { message: null };
       case "ext.mc.pomodoro.reset":
         setPomodoro({ phase: "focus", ends_at: null, remaining_ms: 25 * MINUTE, total_ms: 25 * MINUTE, completed: 0, fresh: true, started_at: null });
         return { message: "Pomodoro reset" };
@@ -164,7 +178,7 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
       case "mc.update.check":
         return { message: "MouseComb is up to date" };
       default:
-        if (!CATALOG.some((c) => c.action === action) && !["core.os.apps.launch", "core.os.shell.open_url", "mc.omnibar.open"].includes(action)) {
+        if (!CATALOG.some((c) => c.action === action) && !["core.os.apps.launch", "core.os.shell.open_url"].includes(action)) {
           return fail("validation", `There's no action called ${action}.`);
         }
         return { message: null };

@@ -52,6 +52,10 @@ export const SETTINGS = {
   hudFadeNearPx: defineSetting("hud.fade_near_px", z.number().int().min(0).max(400), 60),
   hudFadeFarPx: defineSetting("hud.fade_far_px", z.number().int().min(40).max(800), 220),
   hudShowSeconds: defineSetting("hud.show_seconds", z.boolean(), false),
+  /** Analog or digital; Rust sizes the HUD window for it (`prefs::HudStyle`). */
+  hudStyle: defineSetting("hud.style", z.enum(["analog", "digital"]), "digital"),
+  hudDialFace: defineSetting("hud.dial_face", z.enum(["minimal", "classic", "sport", "orbit"]), "minimal"),
+  hudDigitalFace: defineSetting("hud.digital_face", z.enum(["stacked", "bold", "pill", "lcd"]), "stacked"),
   omnibarHotkey: defineSetting("omnibar.hotkey", z.string().trim().min(1).max(64), "Alt+Space"),
   omnibarSearchUrl: defineSetting("omnibar.search_url", searchUrl, "https://duckduckgo.com/?q={q}"),
   pomodoroFocusMin: defineSetting("pomodoro.focus_min", z.number().int().min(1).max(120), 25),
@@ -60,6 +64,34 @@ export const SETTINGS = {
   pomodoroLongBreakEvery: defineSetting("pomodoro.long_break_every", z.number().int().min(2).max(12), 4),
   pomodoroAutoStart: defineSetting("pomodoro.auto_start", z.boolean(), false),
 } as const;
+
+/** "Fade away when the mouse is …": each preset sets both fade distances, in px. */
+export const FADE_PRESETS = {
+  close: { label: "Close", near: 40, far: 140 },
+  medium: { label: "Medium", near: 60, far: 220 },
+  far: { label: "Far", near: 100, far: 320 },
+} as const;
+export type FadePreset = keyof typeof FADE_PRESETS;
+
+/** The preset these distances match, or null for distances set another way. */
+export function fadePresetOf(near: number, far: number): FadePreset | null {
+  const match = Object.entries(FADE_PRESETS).find(([, p]) => p.near === near && p.far === far);
+  return match ? (match[0] as FadePreset) : null;
+}
+
+/** Search engines offered as one-click choices for {@link SETTINGS.omnibarSearchUrl}. */
+export const SEARCH_ENGINES = {
+  duckduckgo: { label: "DuckDuckGo", url: "https://duckduckgo.com/?q={q}" },
+  google: { label: "Google", url: "https://www.google.com/search?q={q}" },
+  bing: { label: "Bing", url: "https://www.bing.com/search?q={q}" },
+} as const;
+export type SearchEngine = keyof typeof SEARCH_ENGINES;
+
+/** Which offered engine a search address is, or null for a custom one. */
+export function searchEngineOf(url: string): SearchEngine | null {
+  const match = Object.entries(SEARCH_ENGINES).find(([, e]) => e.url === url.trim());
+  return match ? (match[0] as SearchEngine) : null;
+}
 
 /** Settings that stay on this device (APP_SPEC §5), stored outside sync. */
 export const LOCAL_SETTINGS = {

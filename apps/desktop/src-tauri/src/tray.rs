@@ -55,7 +55,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main(app),
-            "omnibar" => overlays::show_omnibar(app),
+            "omnibar" => overlays::show_omnibar(app, None),
             "pomodoro" => run(app, id::POMODORO_TOGGLE, Value::Null),
             "clock" => {
                 // The check mark flipped itself; the next refresh sets it from the setting.

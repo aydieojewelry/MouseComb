@@ -107,7 +107,7 @@ fn on_settings_changed(app: &AppHandle) {
     if before.omnibar_hotkey != next.omnibar_hotkey {
         overlays::apply_hotkey(app, &next.omnibar_hotkey);
     }
-    if before.hud_enabled != next.hud_enabled {
+    if before.hud_enabled != next.hud_enabled || (next.hud_enabled && before.hud_style != next.hud_style) {
         overlays::set_hud_visible(app, next.hud_enabled);
     }
     if before.pomodoro != next.pomodoro {

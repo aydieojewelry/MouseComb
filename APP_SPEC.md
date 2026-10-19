@@ -14,7 +14,7 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: pre-production          # first installable release at the end of M1 (§11)
-build: B-0008                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
+build: B-0009                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -51,7 +51,10 @@ targets:
 |---|---|---|
 | `bg.idle` | `#000000` | HUD background, AMOLED black |
 | `bg.surface` | `#0E0E10` | Modals, settings panels |
-| `bg.input` | `#18181B` | Inputs, list rows |
+| `bg.input` | `#18181B` | Inputs, list rows, cards inside a card |
+| `bg.card` | `#121214` | Settings cards |
+| `bg.face` / `bg.button` | `#141417` / `#1C1C20` | Timer dial face, round buttons |
+| `line` / `tick` | `#2A2A30` / `#45454E` | Borders / unlit dial ticks |
 | `accent.run` | `#FF7A00` | Running timer, active zones, primary buttons |
 | `accent.text` | `#1A1200` | Text on accent |
 | `text.primary` | `#FFFFFF` | |
@@ -230,11 +233,11 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 |---|---|---|---|
 | FEAT-000 | App shell: tray, autostart, single instance, store, windows pre-created | M0 | IN_PROGRESS (all but extra windows) |
 | FEAT-008 | CapsLock Hyper-Key | M1 | PLANNED |
-| FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 → M3 | IN_PROGRESS (runner + the 22 actions the OmniBar needs, B-0007; full catalog M3) |
+| FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 → M3 | IN_PROGRESS (runner + the 23 actions the OmniBar needs, B-0007/B-0009; full catalog M3) |
 | FEAT-014 | Trigger & binding system (any trigger → any action, per-app conditions) | M1 | PLANNED |
 | FEAT-004 | OmniBar: command palette (opens Settings, runs quick commands, later every action) | M1 | TESTING (built B-0007, verified on Linux; needs a Windows run) |
 | FEAT-009 | Help modals, generated from the live bindings | M2 | PLANNED |
-| FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell, General with OmniBar shortcut recorder + HUD preview + Privacy, Pomodoro, Snippets, Account, About with updates) |
+| FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell; General: shortcut, search engine, clock faces with preview and fade presets, Basics; Pomodoro: dial, steppers; Snippets, Account, About with updates. Visual redesign B-0009) |
 | FEAT-015 | Workflows | M3 | PLANNED |
 | FEAT-016 | Extension host + SDK + permissions | M4 | PLANNED |
 | FEAT-018 | Script commands | M4 | PLANNED |
@@ -263,7 +266,7 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | ID | Extension | Contributes | Permissions |
 |---|---|---|---|
 | FEAT-001b | `mc.clock` | HUD widget: time + date (built in M1 inside the core, moved behind the extension API in M5) | — |
-| FEAT-002 | `mc.pomodoro` | HUD widget, start/pause/toggle/skip/reset actions (`ext.mc.pomodoro.*`), toast, synced sessions (built in M1 inside the core, moved in M5) | notifications |
+| FEAT-002 | `mc.pomodoro` | HUD widget, OmniBar timer view, start/pause/toggle/skip/reset/extend actions (`ext.mc.pomodoro.*`), toast, synced sessions (built in M1 inside the core, moved in M5) | notifications |
 | FEAT-003 | `mc.weather` | HUD widget, refresh action | network: api.open-meteo.com |
 | FEAT-005a | `mc.clipboard` | `Caps+V` view, history, paste action | clipboard:read, keys:send |
 | FEAT-005b | `mc.snippets` | snippet list, insert action, `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` tokens (data + editor built in B-0004 as core) | clipboard:write, keys:send |
@@ -312,7 +315,8 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 - **Typed-in results first:** a calculator result, then a web address (`github.com/x`), and always last "Search the web" (`omnibar.search_url`, default DuckDuckGo).
 - **Destructive commands** (sleep, sign out, restart, shut down) need a second Enter; Rust refuses them without `confirmed`.
 - Hover only highlights after the mouse moves, so a window opening under a resting mouse keeps the top result.
-- `Esc` clears the text, then closes. Focus returns to the previous window. After a command runs, the OmniBar closes and the HUD flashes a short confirmation ("Copied").
+- `Esc` clears the text, then closes. Focus returns to the previous window. After a command runs, the OmniBar closes itself (`omnibar_hide`) and the HUD flashes a short confirmation ("Copied").
+- **Views:** `mc.omnibar.open` with `view` opens the OmniBar on a view instead of the list (allow-list `OMNIBAR_VIEWS`); "Pomodoro timer" in the list does the same in place. The **Pomodoro timer view** (design: "OmniBar · Pomodoro timer") has a 60-minute dial with the time left (a tick per minute, a dot per half minute, quarter numbers, an inner arc to the exact time) and a raised start/pause button in the middle, the countdown, Now / Next / After N cards (cards further ahead are blurred: not started yet), and +5 min, Skip, Reset. Keys: `Space` start/pause, `S` skip, `R` reset, `+` add 5 min, `Esc` back to the list. Its buttons keep the OmniBar open.
 - Later: each result shows its current hotkey; extension commands open views inside it.
 
 ### FEAT-023 — Quick commands (M1)
@@ -324,13 +328,14 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 | Web | Web addresses open in the browser; anything else can be searched on the web. Only `http(s)` URLs open. |
 | Windows Settings | 8 common `ms-settings:` pages from an allow-list. |
 | Power | Lock (`LockWorkStation`), sleep (`SetSuspendState`), sign out / restart / shut down (`shutdown.exe`). All but lock confirm first. |
-| MouseComb | Open Settings or any of its pages, Sync now, Check for updates / Restart to update, show or hide the clock (`setting.toggle`), Quit, Pomodoro start/pause, skip, reset. |
+| MouseComb | Open Settings or any of its pages, Sync now, Check for updates / Restart to update, show or hide the clock (`setting.toggle`), Quit, Pomodoro timer view, Pomodoro start/pause, skip, add 5 minutes, reset. |
 
 ### FEAT-002 — Pomodoro (M1, in the core)
 - Timer is a pure state machine in `mc_core::pomodoro` (time passed in; "running" is simply `ends_at` being set), saved on each change to the device-only `pomodoro.state`, so it survives a restart. The desktop task sleeps while the timer is stopped and wakes at least once a second while it runs.
 - Settings (synced): `pomodoro.focus_min` 25, `short_break_min` 5, `long_break_min` 15, `long_break_every` 4, `auto_start` false. New lengths apply to a phase that hasn't started.
+- **+5 min** (`ext.mc.pomodoro.extend`, optional `minutes` 1–60, default 5) adds time to the current phase, running or not, up to 3 h left; an extended phase keeps its length when durations change.
 - When a phase ends: a notification; a finished focus phase is saved as a synced item of kind `pomodoro` (`started_at`, `ended_at`, `minutes`) for stats. After sleep, only one phase ends (the next one counts from wake-up).
-- Shown in the HUD, the OmniBar ("Pause Pomodoro · Focus 12:03 left"), the tray, and Settings → Pomodoro (ring, Start/Pause, Skip, Reset, sessions today and last 7 days).
+- Shown in the HUD, the OmniBar ("Pause Pomodoro · Focus 12:03 left", and the timer view, FEAT-004), the tray, and Settings → Pomodoro: the same dial with start/pause in the middle, Skip, Reset, sessions today and focus minutes in the last 7 days; "Your rhythm" with −/+ steppers for the three lengths (the current phase's card is highlighted), "Long break after" 2–6 as number circles, and the auto-start switch.
 
 ### FEAT-021 — First launch (M1)
 - The main window opens on `/welcome` until the user signs in, creates an account or picks **Use offline** (device-only `onboarding.done`). Signed-in devices skip it.
@@ -420,9 +425,9 @@ Restart-Service Audiosrv
 - Paid extensions: not in v1 (DEC-012).
 
 ### FEAT-001 — HUD host
-- Transparent, borderless, always-on-top, click-through window, bottom-right of the primary screen's work area, placed by its configured size (220×76) so placement works before the window exists natively; re-placed every 10 s for screen changes. Shows widgets from extensions (clock, pomodoro, weather by default) in the order you choose.
-- **M1:** clock (locale time format, seconds optional), the date, or the Pomodoro countdown while a timer is running or paused, and 1.8 s flashes from actions. `hud.enabled` shows or hides it (Settings, OmniBar, tray). Rust polls the cursor at 20 Hz only while the HUD is visible (the loop sleeps otherwise), measures against the HUD's known position, and sends an opacity only when it changes.
-- **Proximity fade:** opacity follows the cursor's distance. Hidden within `hud.fade_near_px`, fully visible beyond `hud.fade_far_px`.
+- Transparent, borderless, always-on-top, click-through window, bottom-right of the primary screen's work area, sized and placed by Rust for the clock style (digital 160×90, analog 128×128, `overlays::hud_size`) so placement works before the window exists natively; re-placed every 10 s for screen changes. The page draws in a box of that size at the window's top-left (Linux never makes a webview window smaller than 200×200). Shows widgets from extensions (clock, pomodoro, weather by default) in the order you choose.
+- **M1:** the clock face you pick (`hud.style` analog or digital; `hud.dial_face` Minimal, Classic, Sport or Orbit; `hud.digital_face` Stacked, Bold, Pill or LCD; locale time format, seconds optional as a second hand or `:ss`), with a status line above it for the Pomodoro countdown while a timer is running or paused and 1.8 s flashes from actions. `hud.enabled` shows or hides it (Settings, OmniBar, tray). Rust polls the cursor at 20 Hz only while the HUD is visible (the loop sleeps otherwise), measures against the HUD's known position, and sends an opacity only when it changes.
+- **Proximity fade:** opacity follows the cursor's distance. Hidden within `hud.fade_near_px`, fully visible beyond `hud.fade_far_px`. Settings offers three presets: Close (40/140), Medium (60/220, default), Far (100/320); a live preview shows the face and both zones.
 - **Holding Ctrl** makes it clickable. A widget's `Ctrl+click` / `Ctrl+right-click` run actions it declares.
 
 ### FEAT-006 — Gesture trigger (safe triggers)
@@ -530,7 +535,7 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
   "paused": false,
   "exclusions": { "processes": [], "auto_fullscreen": true, "scope": "device" },
   "hyper":     { "capslock_toggle_ms": 1500 },
-  "hud":       { "enabled": true, "show_seconds": false, "monitor": "primary", "fade_near_px": 60, "fade_far_px": 220, "widgets": ["mc.clock", "mc.pomodoro", "mc.weather"] },
+  "hud":       { "enabled": true, "style": "digital", "dial_face": "minimal", "digital_face": "stacked", "show_seconds": false, "monitor": "primary", "fade_near_px": 60, "fade_far_px": 220, "widgets": ["mc.clock", "mc.pomodoro", "mc.weather"] },
   "gestures":  { "caps_drag": true, "rmb_drag": false, "threshold_px": 18, "axis_ratio": 2.0, "max_duration_ms": 1500, "show_trail": true },
   "chords":    { "lmb_scroll": false },
   "edges":     { "enabled": true, "edge_px": 2, "corner_px": 8, "dwell_ms": 350, "cooldown_ms": 600 },

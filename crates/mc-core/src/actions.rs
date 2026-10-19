@@ -24,6 +24,7 @@ pub mod id {
     pub const POMODORO_TOGGLE: &str = "ext.mc.pomodoro.toggle";
     pub const POMODORO_SKIP: &str = "ext.mc.pomodoro.skip";
     pub const POMODORO_RESET: &str = "ext.mc.pomodoro.reset";
+    pub const POMODORO_EXTEND: &str = "ext.mc.pomodoro.extend";
     pub const SNIPPET_COPY: &str = "ext.mc.snippets.copy";
     pub const APP_LAUNCH: &str = "core.os.apps.launch";
     pub const OPEN_URL: &str = "core.os.shell.open_url";
@@ -63,7 +64,7 @@ pub struct Command {
 }
 
 fn command(action: &str, with: Value, title: &str, hint: &str, keywords: &[&str], group: CommandGroup) -> Command {
-    let suffix = with.get("page").or_else(|| with.get("key")).and_then(Value::as_str);
+    let suffix = ["page", "key", "view"].iter().find_map(|name| with.get(name)).and_then(Value::as_str);
     Command {
         key: suffix.map_or_else(|| action.to_owned(), |s| format!("{action}:{s}")),
         action: action.to_owned(),
@@ -84,6 +85,12 @@ pub const SETTINGS_PAGES: &[(&str, &str, &[&str])] = &[
     ("account", "Account & sync", &["sign in", "login", "log in", "sign out", "sync", "server"]),
     ("about", "About MouseComb", &["version", "updates", "help"]),
 ];
+
+/// Views the OmniBar can open on instead of its result list (`mc.omnibar.open` with `view`).
+pub const OMNIBAR_VIEWS: &[&str] = &["pomodoro"];
+
+/// How much "+5 min" adds when an action doesn't say (`ext.mc.pomodoro.extend`).
+pub const DEFAULT_EXTEND_MIN: u32 = 5;
 
 /// Windows Settings pages offered in M1 (`ms-settings:` URIs).
 pub const WINDOWS_SETTINGS_PAGES: &[(&str, &str, &[&str])] = &[
@@ -137,6 +144,14 @@ fn build_catalog() -> Vec<Command> {
         ),
         command(id::QUIT, Value::Null, "Quit MouseComb", "MouseComb", &["exit", "close"], MouseComb),
         command(
+            id::OMNIBAR_OPEN,
+            json!({ "view": "pomodoro" }),
+            "Pomodoro timer",
+            "Pomodoro",
+            &["timer", "focus", "tomato", "countdown", "dial"],
+            Pomodoro,
+        ),
+        command(
             id::POMODORO_TOGGLE,
             Value::Null,
             "Start or pause Pomodoro",
@@ -150,6 +165,14 @@ fn build_catalog() -> Vec<Command> {
             "Skip to the next Pomodoro phase",
             "Pomodoro",
             &["break", "next", "timer"],
+            Pomodoro,
+        ),
+        command(
+            id::POMODORO_EXTEND,
+            Value::Null,
+            "Add 5 minutes to Pomodoro",
+            "Pomodoro",
+            &["more time", "extend", "longer", "snooze"],
             Pomodoro,
         ),
         command(id::POMODORO_RESET, Value::Null, "Reset Pomodoro", "Pomodoro", &["stop", "timer", "restart"], Pomodoro),
@@ -175,7 +198,6 @@ fn build_catalog() -> Vec<Command> {
 /// Actions that run but have no OmniBar entry of their own (they take
 /// arguments, like an app id, or appear only in some states).
 const UNLISTED: &[&str] = &[
-    id::OMNIBAR_OPEN,
     id::UPDATE_INSTALL,
     id::POMODORO_START,
     id::POMODORO_PAUSE,
@@ -225,6 +247,14 @@ mod tests {
         assert_eq!(power.len(), 5);
         assert!(power.iter().all(|c| c.confirm == (c.action != id::LOCK)));
         assert!(needs_confirmation(id::RESTART) && !needs_confirmation(id::LOCK));
+    }
+
+    #[test]
+    fn the_pomodoro_timer_opens_inside_the_omnibar() {
+        let timer = catalog().iter().find(|c| c.key == "mc.omnibar.open:pomodoro").expect("listed");
+        assert_eq!(timer.with["view"], "pomodoro");
+        assert!(OMNIBAR_VIEWS.contains(&"pomodoro"));
+        assert!(is_known(id::OMNIBAR_OPEN) && is_known(id::POMODORO_EXTEND));
     }
 
     #[test]

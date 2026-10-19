@@ -13,6 +13,19 @@ Template:
 
 ---
 
+## B-0009 — 2026-10-19 — The approved design: OmniBar timer, clock faces, simpler Settings
+- Owner approved the design canvas (https://claude.ai/artifact/6TCLQibXwK8SiFGxzhBcJ3) after three rounds of comments: a dial timer inside the OmniBar, cards still to come blurred, finer dial markings, analog/digital clock faces, simpler and more visual Settings.
+- Done:
+  - **OmniBar Pomodoro timer view (FEAT-002, FEAT-004):** "Pomodoro timer" (`mc.omnibar.open` with `view: pomodoro`) opens a dial view: time left on a 60-minute dial (minute ticks, half-minute dots, quarter numbers, inner arc), raised start/pause in the middle, countdown, Now / Next / After N cards (later ones blurred), +5 min / Skip / Reset; `Space` `S` `R` `+` keys, `Esc` back. The OmniBar now closes itself after a list command (`omnibar_hide`), so the view's buttons keep it open.
+  - **New action `ext.mc.pomodoro.extend`** (`Pomodoro::extend`, +5 min by default, up to 3 h left; the phase keeps its length when durations change) and the catalog entry "Add 5 minutes to Pomodoro".
+  - **Clock faces (FEAT-001):** `hud.style` analog/digital with `hud.dial_face` (Minimal, Classic, Sport, Orbit) and `hud.digital_face` (Stacked, Bold, Pill, LCD); the status line (Pomodoro, flashes) sits above the face. Rust sizes the HUD window per style (160×90 / 128×128) and re-places it when the style changes.
+  - **Settings · General:** big keycap shortcut with Change, search engine chips (DuckDuckGo / Google / Bing / Custom…), Clock card (on/off, Analog/Digital, face cards with live previews, corner preview with fade zones, Close/Medium/Far presets, seconds), Basics (start with Windows, usage sharing with "What's shared"). The CapsLock and Weather sections are gone until those features ship (M3, M5); their settings stay defined.
+  - **Settings · Pomodoro:** the dial with start/pause, Skip, Reset, two stat tiles; "Your rhythm" −/+ steppers (typeable), long break after 2–6, auto-start.
+  - **UI kit (`packages/ui`):** `TimerDial`, `ClockFace` (+ `clockParts`, `handAngles`), `ChoiceGroup` (Ark RadioGroup: segment, chip, circle, card), `Stepper` (Ark NumberInput), `RoundButton`, `useShortcutRecorder`, large `Kbd`, `Switch hideLabel`, `Section` without a title; tokens `card`, `face`, `button`, `selected`, `tick`.
+- Verified: clippy `-D warnings` (Linux and Windows target), fmt, 38 Rust tests with live PocketBase, 25 Vitest + 6 script tests, typecheck, production build, bindings regenerated; browser preview of every new screen; real app in Xvfb: "timer" + Enter opens the dial view, Space starts, `+` adds 5 min, Esc back then Esc closes; switching to Analog in Settings resizes and re-places the HUD with the countdown above the face.
+- Found: on Linux a webview window is never smaller than 200×200, so the HUD page now draws in a box of its intended size at the top-left (Windows gets the exact size).
+- Next: owner setup → first release → Windows run (check the HUD sizes and faces at 100 % and 150 % scaling).
+
 ## B-0008 — 2026-10-19 — Simpler, lighter M1 code; editable design canvas
 - Done:
   - **Design:** an editable Claude Design canvas with the OmniBar (Typing / Calculator / Confirm states), Clock HUD, tokens, First launch, Settings · General and Settings · Pomodoro, with accent-color tweaks: https://claude.ai/artifact/6TCLQibXwK8SiFGxzhBcJ3

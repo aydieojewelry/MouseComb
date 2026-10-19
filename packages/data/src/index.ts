@@ -12,13 +12,19 @@ export {
 export {
   EXTENSION_SETTINGS,
   extensionDataCollection,
+  FADE_PRESETS,
+  fadePresetOf,
   LOCAL_SETTINGS,
+  SEARCH_ENGINES,
+  searchEngineOf,
   localSettingQuery,
   SETTINGS,
   settingsCollection,
   useExtensionSetting,
   useLocalSetting,
   useSetting,
+  type FadePreset,
+  type SearchEngine,
   type SettingDef,
 } from "./settings";
 export { useBackendEvent, type BackendEvent } from "./events";
@@ -26,12 +32,16 @@ export {
   formatClock,
   isRunning,
   PHASE_LABEL,
+  pomodoroRound,
   pomodoroVerb,
   pomodoroSessionsCollection,
   remainingMs,
   sessionStats,
+  upcomingPhases,
   usePomodoro,
+  type PomodoroRhythm,
   type PomodoroSession,
+  type UpcomingPhase,
 } from "./pomodoro";
 export {
   runAction,

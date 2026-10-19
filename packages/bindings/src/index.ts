@@ -44,7 +44,10 @@ export const commands = {
 	updateStatusGet: () => __TAURI_INVOKE<UpdateStatus>("update_status_get"),
 	hotkeyStatusGet: () => __TAURI_INVOKE<HotkeyStatus>("hotkey_status_get"),
 	omnibarHide: () => __TAURI_INVOKE<void>("omnibar_hide"),
-	/**  Run an action. From the OmniBar, it closes once the action succeeds. */
+	/**
+	 *  Run an action. The OmniBar closes itself after a command from its list
+	 *  (`omnibar_hide`) and stays open for its timer view's buttons.
+	 */
 	actionRun: (action: string, args: Json, confirmed: boolean) => typedError<ActionResult, CommandError>(__TAURI_INVOKE("action_run", { action, args, confirmed })),
 };
 
@@ -172,8 +175,13 @@ export type NavigateRequested = {
 	to: string,
 };
 
-/**  The OmniBar was just shown: clear the input and focus it. */
-export type OmniBarOpened = null;
+/**
+ *  The OmniBar was just shown: clear the input and focus it. `view` asks
+ *  for a view instead of the result list (`mc_core::actions::OMNIBAR_VIEWS`).
+ */
+export type OmniBarOpened = {
+	view: string | null,
+};
 
 export type Phase = "focus" | "short_break" | "long_break";
 

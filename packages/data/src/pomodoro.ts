@@ -60,6 +60,42 @@ export function formatClock(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
+/** The durations a Pomodoro uses (settings `pomodoro.*`). */
+export type PomodoroRhythm = { focusMin: number; shortBreakMin: number; longBreakMin: number; longBreakEvery: number };
+
+export type UpcomingPhase = { label: string; phase: Phase; minutes: number };
+
+/** The phase after `phase` once `completed` focus sessions are done (mirrors `mc_core::pomodoro`). */
+function after(phase: Phase, completed: number, every: number): Phase {
+  if (phase !== "focus") return "focus";
+  return (completed + 1) % Math.max(1, every) === 0 ? "long_break" : "short_break";
+}
+
+/**
+ * Three cards for the timer: now, next, and either the long break ("After 4")
+ * or, when the long break is next, the focus after it ("Then").
+ */
+export function upcomingPhases(p: Pomodoro, r: PomodoroRhythm): [UpcomingPhase, UpcomingPhase, UpcomingPhase] {
+  const minutesOf = (phase: Phase) =>
+    phase === "focus" ? r.focusMin : phase === "short_break" ? r.shortBreakMin : r.longBreakMin;
+  const next = after(p.phase, p.completed, r.longBreakEvery);
+  const third: UpcomingPhase =
+    next === "long_break"
+      ? { label: "Then", phase: "focus", minutes: r.focusMin }
+      : { label: `After ${r.longBreakEvery}`, phase: "long_break", minutes: r.longBreakMin };
+  return [
+    { label: "Now", phase: p.phase, minutes: Math.round(p.total_ms / 60_000) },
+    { label: "Next", phase: next, minutes: minutesOf(next) },
+    third,
+  ];
+}
+
+/** Which focus round this is, 1 to `every` (a break belongs to the round it follows). */
+export function pomodoroRound(p: Pomodoro, every: number): number {
+  const done = p.completed % Math.max(1, every);
+  return p.phase === "focus" ? done + 1 : done === 0 ? every : done;
+}
+
 /** Sessions and focus minutes since `from` (ms since the Unix epoch). */
 export function sessionStats(sessions: PomodoroSession[], from: number): { count: number; minutes: number } {
   const recent = sessions.filter((s) => s.ended_at >= from);
