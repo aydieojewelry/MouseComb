@@ -36,9 +36,18 @@ export const PHASE_LABEL: Record<Phase, string> = {
   long_break: "Long break",
 };
 
+export function isRunning(p: Pomodoro): boolean {
+  return p.ends_at !== null;
+}
+
+/** What the start/pause control does next. */
+export function pomodoroVerb(p: Pomodoro): "Pause" | "Start" | "Resume" {
+  return isRunning(p) ? "Pause" : p.fresh ? "Start" : "Resume";
+}
+
 /** Milliseconds left, counting down while the timer runs. */
 export function remainingMs(p: Pomodoro, now = Date.now()): number {
-  return p.running && p.ends_at !== null ? Math.max(0, p.ends_at - now) : p.remaining_ms;
+  return p.ends_at !== null ? Math.max(0, p.ends_at - now) : p.remaining_ms;
 }
 
 /** `25:00`, `4:05`, `1:02:03`. Rounds up so the display never shows 0:00 early. */

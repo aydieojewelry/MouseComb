@@ -21,9 +21,12 @@ export {
   useSetting,
   type SettingDef,
 } from "./settings";
+export { useBackendEvent, type BackendEvent } from "./events";
 export {
   formatClock,
+  isRunning,
   PHASE_LABEL,
+  pomodoroVerb,
   pomodoroSessionsCollection,
   remainingMs,
   sessionStats,
@@ -40,6 +43,7 @@ export {
   type ActionRequest,
 } from "./shell";
 export {
+  accountQuery,
   connectBackendEvents,
   queryKeys,
   useAccount,

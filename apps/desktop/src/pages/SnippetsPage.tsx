@@ -15,6 +15,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
+import { issueText } from "../components/issueText";
 import { timeAgo } from "../time";
 
 const editorSchema = z.object({
@@ -28,12 +29,6 @@ const editorSchema = z.object({
 
 function parseTags(text: string): string[] {
   return [...new Set(text.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))];
-}
-
-function issueText(errors: unknown[]): string | undefined {
-  const first = errors.find(Boolean);
-  if (!first) return undefined;
-  return typeof first === "string" ? first : ((first as { message?: string }).message ?? "Check this field.");
 }
 
 export function SnippetsPage() {

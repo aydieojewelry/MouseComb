@@ -271,6 +271,21 @@ export function shortcutFromEvent(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "a
     .join("+");
 }
 
+/** A shortcut such as `Ctrl+Shift+K` as key caps (`Super` shows as Win). */
+export function ShortcutKeys(props: { shortcut: string; separator?: ReactNode }) {
+  const keys = props.shortcut.split("+").map((k) => (k === "Super" ? "Win" : k));
+  return (
+    <>
+      {keys.map((k, i) => (
+        <span key={k}>
+          {i > 0 && props.separator}
+          <Kbd>{k}</Kbd>
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Shows a shortcut as key caps; click, then press keys to record a new one. */
 export function HotkeyField(props: {
   label: string;
@@ -294,7 +309,6 @@ export function HotkeyField(props: {
       props.onChange(shortcut);
     }
   };
-  const parts = props.value.split("+").map((p) => (p === "Super" ? "Win" : p));
   return (
     <div className="flex items-center justify-between gap-6">
       <span className="flex flex-col gap-0.5">
@@ -318,7 +332,7 @@ export function HotkeyField(props: {
           props.error && !recording && "border-danger",
         )}
       >
-        {recording ? "Press keys…" : parts.map((p) => <Kbd key={p}>{p}</Kbd>)}
+        {recording ? "Press keys…" : <ShortcutKeys shortcut={props.value} />}
       </button>
     </div>
   );

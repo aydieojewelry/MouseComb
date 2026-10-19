@@ -7,7 +7,7 @@ import {
   type SyncStatus,
   type UpdateStatus,
 } from "@mousecomb/bindings";
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { unwrap } from "./errors";
 
@@ -44,8 +44,15 @@ export function connectBackendEvents(client: QueryClient): () => void {
   return () => stops.forEach((p) => void p.then((stop) => stop()));
 }
 
+/** The signed-in account, or null. Also used by the router before the first render. */
+export const accountQuery = queryOptions({
+  queryKey: queryKeys.account,
+  queryFn: () => commands.accountGet(),
+  staleTime: Infinity,
+});
+
 export function useAccount() {
-  return useQuery({ queryKey: queryKeys.account, queryFn: () => commands.accountGet(), staleTime: Infinity });
+  return useQuery(accountQuery);
 }
 
 export function useSyncStatus() {

@@ -16,11 +16,12 @@ mod sync_loop;
 mod tray;
 mod updates;
 
+use std::sync::atomic::Ordering;
+
 use tauri::{AppHandle, Manager, WindowEvent, Wry};
 use tauri_plugin_global_shortcut::ShortcutState;
 use tauri_specta::{Builder, collect_commands, collect_events};
 
-use crate::error::CommandResult;
 use crate::state::{AccountChanged, AppState, ItemsChanged, NavigateRequested, SyncStatusChanged};
 
 /// Started by Windows at sign-in: stay in the tray instead of opening a window.
@@ -69,15 +70,33 @@ pub fn specta_builder() -> Builder<Wry> {
         ])
 }
 
-/// Quit for real (the window's close button only hides it). A downloaded
-/// update installs on the way out.
-pub fn quit(app: &AppHandle) -> CommandResult<actions::ActionResult> {
-    updates::install_on_quit(app);
-    app.exit(0);
-    Ok(actions::ActionResult::default())
+/// Milliseconds since the Unix epoch.
+pub fn now_ms() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
 }
 
-/// A setting changed (here, from a hotkey, or from another device).
+/// Quit for real (the window's close button only hides it). A downloaded
+/// update installs on the way out; with none, `install` does nothing.
+pub fn quit(app: &AppHandle) {
+    let _ = updates::install(app);
+    app.exit(0);
+}
+
+/// Settings changed (here, from a hotkey, or from another device). A sync
+/// pull changes many at once, so changes within 50 ms share one reload.
+fn schedule_settings_reload(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    if state.prefs_reload_pending.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        app.state::<AppState>().prefs_reload_pending.store(false, Ordering::SeqCst);
+        on_settings_changed(&app);
+    });
+}
+
 fn on_settings_changed(app: &AppHandle) {
     let state = app.state::<AppState>();
     let next = prefs::Prefs::load(&state.store);
@@ -132,12 +151,10 @@ pub fn run() {
                 use tauri_specta::Event;
                 let _ = ItemsChanged { kind: kind.to_owned() }.emit(&handle);
                 if kind == mc_core::kind::SETTING {
-                    let handle = handle.clone();
-                    // Off the store's call stack: it may hold the caller's locks.
-                    tauri::async_runtime::spawn(async move { on_settings_changed(&handle) });
+                    schedule_settings_reload(&handle);
                 }
                 let state = handle.state::<AppState>();
-                if kind != "local_setting" && !state.syncing.load(std::sync::atomic::Ordering::SeqCst) {
+                if kind != "local_setting" && !state.syncing.load(Ordering::SeqCst) {
                     state.wake.notify_one();
                 }
             })));
@@ -151,7 +168,7 @@ pub fn run() {
             overlays::apply_hotkey(app.handle(), &prefs.omnibar_hotkey);
             overlays::set_hud_visible(app.handle(), prefs.hud_enabled);
             overlays::start_hud_fade(app.handle().clone());
-            apps::refresh_if_stale(app.handle());
+            apps::scan_soon(app.handle().clone());
 
             if std::env::args().any(|a| a == MINIMIZED_ARG)
                 && let Some(window) = app.get_webview_window(overlays::MAIN)

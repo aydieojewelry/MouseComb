@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_specta::Event;
 
-use crate::state::AppState;
+use crate::state::{AppState, HudRect};
 
 pub const MAIN: &str = "main";
 pub const OMNIBAR: &str = "omnibar";
@@ -19,6 +19,8 @@ pub const HUD: &str = "hud";
 /// Gap between the HUD and the screen corner, in logical pixels.
 const HUD_MARGIN: f64 = 16.0;
 const FADE_EVERY: Duration = Duration::from_millis(50);
+/// Screens change (docking, resolution): place the HUD again every ~10 s.
+const PLACE_EVERY_TICKS: u32 = 200;
 /// Focus can bounce while a window appears; ignore blur this soon after showing.
 const BLUR_GRACE: Duration = Duration::from_millis(400);
 
@@ -128,32 +130,41 @@ fn hud(app: &AppHandle) -> Option<WebviewWindow> {
     app.get_webview_window(HUD)
 }
 
-/// Bottom-right of the primary screen's work area (above the taskbar).
-pub fn place_hud(app: &AppHandle) {
-    let Some(w) = hud(app) else { return };
-    let Ok(Some(monitor)) = app.primary_monitor() else { return };
-    let Ok(size) = w.outer_size() else { return };
+/// The HUD's size in logical pixels, from tauri.conf.json. Placing by the
+/// configured size works before the window exists natively (Linux creates
+/// it only when shown); the HUD page draws from the top edge, so a window
+/// the OS made taller still shows the clock in the right spot.
+fn hud_size(app: &AppHandle) -> (f64, f64) {
+    app.config().app.windows.iter().find(|w| w.label == HUD).map_or((220.0, 76.0), |w| (w.width, w.height))
+}
+
+/// Move the HUD to the bottom-right of the primary screen's work area
+/// (above the taskbar) and return where it is now.
+fn place_hud(app: &AppHandle) -> Option<HudRect> {
+    let w = hud(app)?;
+    let monitor = app.primary_monitor().ok()??;
+    let scale = monitor.scale_factor();
+    let (width, height) = hud_size(app);
+    let (width, height) = (width * scale, height * scale);
     let area = monitor.work_area();
-    let margin = (HUD_MARGIN * monitor.scale_factor()) as i32;
-    let x = area.position.x + area.size.width as i32 - size.width as i32 - margin;
-    let y = area.position.y + area.size.height as i32 - size.height as i32 - margin;
-    let _ = w.set_position(PhysicalPosition::new(x, y));
+    let margin = HUD_MARGIN * scale;
+    let left = f64::from(area.position.x) + f64::from(area.size.width) - width - margin;
+    let top = f64::from(area.position.y) + f64::from(area.size.height) - height - margin;
+    let _ = w.set_position(PhysicalPosition::new(left as i32, top as i32));
+    Some(HudRect { left, top, right: left + width, bottom: top + height, scale })
 }
 
 pub fn set_hud_visible(app: &AppHandle, visible: bool) {
     let Some(w) = hud(app) else { return };
+    let state = app.state::<AppState>();
     if visible {
-        place_hud(app);
-        // On Linux the native window (and its real size) only exists once
-        // shown, so make it click-through and place it again after showing.
+        *state.hud_rect.lock().expect("hud lock") = place_hud(app);
         let _ = w.show();
+        // After showing: on Linux the native window exists only from here on.
         let _ = w.set_ignore_cursor_events(true);
-        let app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(400)).await;
-            place_hud(&app);
-        });
+        state.hud_wake.notify_one();
     } else {
+        *state.hud_rect.lock().expect("hud lock") = None;
         let _ = w.hide();
     }
 }
@@ -174,38 +185,37 @@ pub fn fade_opacity(distance: f64, near: f64, far: f64) -> f64 {
 }
 
 /// Follow the cursor and tell the HUD how visible to be. Reads only the
-/// cursor position and the settings snapshot; never touches input.
+/// cursor position and the settings snapshot; never touches input. While
+/// the HUD is hidden the loop sleeps until `set_hud_visible` wakes it.
 pub fn start_hud_fade(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
         let mut last = -1.0_f64;
         let mut ticks: u32 = 0;
         loop {
-            tokio::time::sleep(FADE_EVERY).await;
-            ticks = ticks.wrapping_add(1);
-            let Some(w) = hud(&app) else { continue };
-            if !w.is_visible().unwrap_or(false) {
+            let rect = *state.hud_rect.lock().expect("hud lock");
+            let Some(rect) = rect else {
                 last = -1.0;
-                continue;
-            }
-            // Screens change (docking, resolution): re-place every ~10 s.
-            if ticks.is_multiple_of(200) {
-                place_hud(&app);
-            }
-            let (Ok(cursor), Ok(pos), Ok(size), Ok(scale)) =
-                (app.cursor_position(), w.outer_position(), w.outer_size(), w.scale_factor())
-            else {
+                state.hud_wake.notified().await;
                 continue;
             };
-            let prefs = app.state::<AppState>().prefs();
-            let d = distance_to_rect(
-                cursor.x,
-                cursor.y,
-                f64::from(pos.x),
-                f64::from(pos.y),
-                f64::from(pos.x) + f64::from(size.width),
-                f64::from(pos.y) + f64::from(size.height),
-            ) / scale;
-            let opacity = (fade_opacity(d, prefs.hud_fade_near_px, prefs.hud_fade_far_px) * 50.0).round() / 50.0;
+            tokio::time::sleep(FADE_EVERY).await;
+            ticks = ticks.wrapping_add(1);
+            if ticks.is_multiple_of(PLACE_EVERY_TICKS)
+                && let Some(placed) = place_hud(&app)
+            {
+                let mut current = state.hud_rect.lock().expect("hud lock");
+                if current.is_some() {
+                    *current = Some(placed);
+                }
+            }
+            let Ok(cursor) = app.cursor_position() else { continue };
+            let (near, far) = {
+                let prefs = state.prefs.read().expect("prefs lock");
+                (prefs.hud_fade_near_px, prefs.hud_fade_far_px)
+            };
+            let d = distance_to_rect(cursor.x, cursor.y, rect.left, rect.top, rect.right, rect.bottom) / rect.scale;
+            let opacity = (fade_opacity(d, near, far) * 50.0).round() / 50.0;
             if (opacity - last).abs() > f64::EPSILON {
                 last = opacity;
                 let _ = HudFade { opacity }.emit_to(&app, HUD);

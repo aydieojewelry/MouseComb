@@ -1,5 +1,4 @@
-import { LOCAL_SETTINGS, localSettingQuery, queryKeys } from "@mousecomb/data";
-import { commands } from "@mousecomb/bindings";
+import { accountQuery, LOCAL_SETTINGS, localSettingQuery } from "@mousecomb/data";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createHashHistory,
@@ -35,7 +34,7 @@ const indexRoute = createRoute({
   beforeLoad: async ({ context }) => {
     const [done, account] = await Promise.all([
       context.queryClient.ensureQueryData(localSettingQuery(LOCAL_SETTINGS.onboardingDone)),
-      context.queryClient.ensureQueryData({ queryKey: queryKeys.account, queryFn: () => commands.accountGet() }),
+      context.queryClient.ensureQueryData(accountQuery),
     ]);
     throw redirect({ to: done || account ? "/general" : "/welcome" });
   },

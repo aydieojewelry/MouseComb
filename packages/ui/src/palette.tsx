@@ -12,6 +12,8 @@ import { SearchIcon } from "./icons";
 
 export type PaletteItem = { key: string; title: string };
 
+const ROW_HEIGHT = 48;
+
 export function CommandPalette<T extends PaletteItem>(props: {
   items: T[];
   inputValue: string;
@@ -26,11 +28,9 @@ export function CommandPalette<T extends PaletteItem>(props: {
   footer?: ReactNode;
   emptyText?: string;
   inputRef?: Ref<HTMLInputElement>;
-  rowHeight?: number;
   /** Change it each time the palette is shown (resets mouse tracking). */
   openId?: number;
 }) {
-  const rowHeight = props.rowHeight ?? 48;
   const collection = useMemo(
     () => createListCollection({ items: props.items, itemToValue: (i) => i.key, itemToString: (i) => i.title }),
     [props.items],
@@ -39,7 +39,7 @@ export function CommandPalette<T extends PaletteItem>(props: {
   const virtualizer = useVirtualizer({
     count: props.items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
+    estimateSize: () => ROW_HEIGHT,
     overscan: 8,
   });
 
@@ -121,7 +121,7 @@ export function CommandPalette<T extends PaletteItem>(props: {
                         "absolute inset-x-0 top-0 flex cursor-default items-center rounded-lg px-3",
                         "data-[highlighted]:bg-raised",
                       )}
-                      style={{ height: rowHeight, transform: `translateY(${row.start}px)` }}
+                      style={{ height: ROW_HEIGHT, transform: `translateY(${row.start}px)` }}
                     >
                       {props.renderItem(item, item.key === highlighted)}
                     </Combobox.Item>

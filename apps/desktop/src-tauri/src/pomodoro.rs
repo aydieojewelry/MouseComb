@@ -13,18 +13,16 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tauri_specta::Event;
 
+use crate::now_ms;
 use crate::state::AppState;
 
 /// Device-only: the timer survives a restart, but each PC has its own.
 pub const STATE_KEY: &str = "pomodoro.state";
-const TICK: Duration = Duration::from_millis(500);
+/// While running, wake at least this often: wall time can jump (sleep, clock changes).
+const MAX_WAIT_MS: i64 = 1_000;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
 pub struct PomodoroChanged(pub Pomodoro);
-
-pub fn now_ms() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
-}
 
 pub fn load(store: &Store, config: &Config) -> Pomodoro {
     let mut timer = store
@@ -40,7 +38,7 @@ pub fn load(store: &Store, config: &Config) -> Pomodoro {
 /// Change the timer, then save it and tell every window and the tray.
 pub fn update(app: &AppHandle, change: impl FnOnce(&mut Pomodoro, i64, &Config)) -> Pomodoro {
     let state = app.state::<AppState>();
-    let config = state.prefs().pomodoro;
+    let config = state.pomodoro_config();
     let snapshot = {
         let mut timer = state.pomodoro.lock().expect("pomodoro lock");
         change(&mut timer, now_ms(), &config);
@@ -58,6 +56,7 @@ fn publish(app: &AppHandle, timer: &Pomodoro) {
         log::warn!("couldn't save the Pomodoro timer: {e}");
     }
     let _ = PomodoroChanged(timer.clone()).emit(app);
+    state.pomodoro_wake.notify_one();
     crate::tray::refresh(app);
 }
 
@@ -69,30 +68,37 @@ pub fn phase_name(phase: Phase) -> &'static str {
     }
 }
 
-/// Tick the timer; when a phase ends, notify and log the session.
+/// Tick the timer while it runs; when a phase ends, notify and log the
+/// session. A stopped timer costs nothing: the task waits for `publish`.
 pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
         loop {
-            tokio::time::sleep(TICK).await;
-            let state = app.state::<AppState>();
-            let config = state.prefs().pomodoro;
-            let (finished, snapshot) = {
-                let mut timer = state.pomodoro.lock().expect("pomodoro lock");
-                let finished = timer.tick(now_ms(), &config);
-                (finished, timer.clone())
+            let ends_at = state.pomodoro.lock().expect("pomodoro lock").ends_at;
+            let Some(ends_at) = ends_at else {
+                state.pomodoro_wake.notified().await;
+                continue;
             };
-            if let Some(done) = finished {
-                publish(&app, &snapshot);
-                on_finished(&app, &done, &config, snapshot.running);
+            let wait = (ends_at - now_ms()).clamp(0, MAX_WAIT_MS) as u64;
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_millis(wait)) => {}
+                _ = state.pomodoro_wake.notified() => continue,
+            }
+            let config = state.pomodoro_config();
+            let finished = {
+                let mut timer = state.pomodoro.lock().expect("pomodoro lock");
+                timer.tick(now_ms(), &config).map(|done| (done, timer.clone()))
+            };
+            if let Some((done, timer)) = finished {
+                publish(&app, &timer);
+                on_finished(&app, &done, &config, timer.running());
             }
         }
     });
 }
 
 fn on_finished(app: &AppHandle, done: &Finished, config: &Config, next_started: bool) {
-    if done.phase == Phase::Focus
-        && let Some(started_at) = done.started_at
-    {
+    if let Some(started_at) = done.started_at {
         let store = &app.state::<AppState>().store;
         let data = json!({ "started_at": started_at, "ended_at": now_ms(), "minutes": done.minutes });
         if let Err(e) = store.put(mc_core::kind::POMODORO, &mc_core::new_key(), data) {

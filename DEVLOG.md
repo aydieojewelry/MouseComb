@@ -13,6 +13,18 @@ Template:
 
 ---
 
+## B-0008 — 2026-10-19 — Simpler, lighter M1 code; editable design canvas
+- Done:
+  - **Design:** an editable Claude Design canvas with the OmniBar (Typing / Calculator / Confirm states), Clock HUD, tokens, First launch, Settings · General and Settings · Pomodoro, with accent-color tweaks: https://claude.ai/artifact/6TCLQibXwK8SiFGxzhBcJ3
+  - **Code review pass (reuse, simplification, efficiency, altitude), behavior kept:**
+    - Rust: action catalog built once (`LazyLock`) with `needs_confirmation`/`is_web_url` helpers; Pomodoro `running` derived from `ends_at`; one `now_ms`; settings read with one query and reloads batched (50 ms); toggle defaults and setting lookup in `prefs`; tray runs every item through actions and only updates menu text that changed; `quit` simplified.
+    - Idle costs: the Pomodoro task sleeps while stopped (was 2 wake-ups/s), the HUD fade loop sleeps while hidden and reads only the cursor per tick (was 5 blocking window calls per tick), clipboard read only for `{CLIPBOARD}` snippets, app scan 30 s after start and every 15 min instead of at sign-in and every 5 min.
+    - HUD placed from its configured size, so the 400 ms "place again" retry is gone; the page draws from the top edge.
+    - TS: `useBackendEvent` hook (window-scoped option) replaces four hand-written subscriptions and the `dataset.window` guard; shared `accountQuery`, `useNow`, `issueText`, `ShortcutKeys`, `pomodoroVerb`/`isRunning`; HUD re-renders once a minute unless something per-second is shown.
+- Verified: clippy `-D warnings` (Linux and Windows target), 36 Rust tests, 14 Vitest + 6 script tests, typecheck, build; real app in Xvfb: HUD placed correctly at once, OmniBar "about" opens About while the HUD stays a clock, "timer" starts Pomodoro with flash + countdown.
+- Skipped (noted): per-key local-setting invalidation (needs a store API change), keeping the downloaded update on disk instead of in memory, a stats query for Pomodoro sessions, generating TS setting defaults from Rust.
+- Next: owner setup → first release → Windows run.
+
 ## B-0007 — 2026-10-17 — M1 built: OmniBar, Clock HUD, Pomodoro, first launch, auto-updates
 - Owner decisions: the repo is public (DEC-019: releases from this repo), keep **Use offline** (DEC-017), usage sharing **on by default** with a switch (DEC-018).
 - Done:

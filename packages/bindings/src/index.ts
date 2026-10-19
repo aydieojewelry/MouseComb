@@ -183,8 +183,7 @@ export type Phase = "focus" | "short_break" | "long_break";
  */
 export type Pomodoro = {
 	phase: Phase,
-	running: boolean,
-	/**  While running: when the phase ends (ms since the Unix epoch). */
+	/**  While running: when the phase ends (ms since the Unix epoch). `None` = stopped. */
 	ends_at: number | null,
 	/**  While stopped: time left in the phase. */
 	remaining_ms: number,

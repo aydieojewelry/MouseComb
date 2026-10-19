@@ -4,11 +4,13 @@ import {
   formatClock,
   LOCAL_SETTINGS,
   PHASE_LABEL,
+  pomodoroVerb,
   remainingMs,
   runAction,
   SETTINGS,
   snippetsCollection,
   useApps,
+  useBackendEvent,
   useCommands,
   useHotkeyStatus,
   useLocalSetting,
@@ -31,7 +33,7 @@ import {
 } from "@mousecomb/ui";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { rememberRecent, search, type Result } from "./search";
 
@@ -63,7 +65,7 @@ export function OmniBarPage() {
   const [recents, setRecents] = useLocalSetting(LOCAL_SETTINGS.omnibarRecents);
 
   const run = useMutation({
-    mutationFn: (r: Result & { confirmed: boolean }) => runAction({ action: r.action, args: r.args, confirmed: r.confirmed }),
+    mutationFn: (r: Result) => runAction({ action: r.action, args: r.args, confirmed: r.confirm }),
     onSuccess: (_, r) => {
       setArmed(null);
       setQuery("");
@@ -72,24 +74,17 @@ export function OmniBarPage() {
   });
 
   // Fresh every time the window opens.
-  useEffect(() => {
-    const stop = events.omniBarOpened.listen(() => {
-      setOpenId((n) => n + 1);
-      setQuery("");
-      setArmed(null);
-      run.reset();
-      inputRef.current?.focus();
-    });
-    return () => void stop.then((f) => f());
-  }, [run.reset]);
+  useBackendEvent(events.omniBarOpened, () => {
+    setOpenId((n) => n + 1);
+    setQuery("");
+    setArmed(null);
+    run.reset();
+    inputRef.current?.focus();
+  });
 
-  const pomodoroTitle = timer
-    ? timer.running
-      ? `Pause Pomodoro · ${PHASE_LABEL[timer.phase]} ${formatClock(remainingMs(timer))} left`
-      : timer.fresh
-        ? `Start Pomodoro · ${PHASE_LABEL[timer.phase]} ${formatClock(timer.remaining_ms)}`
-        : `Resume Pomodoro · ${PHASE_LABEL[timer.phase]} ${formatClock(timer.remaining_ms)} left`
-    : undefined;
+  const pomodoroTitle =
+    timer &&
+    `${pomodoroVerb(timer)} Pomodoro · ${PHASE_LABEL[timer.phase]} ${formatClock(remainingMs(timer))}${timer.fresh ? "" : " left"}`;
 
   const items = useMemo(() => {
     const extra =
@@ -115,7 +110,7 @@ export function OmniBarPage() {
       setArmed(r.key);
       return;
     }
-    run.mutate({ ...r, confirmed: r.confirm });
+    run.mutate(r);
   };
 
   const status = run.error ? (

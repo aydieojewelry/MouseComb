@@ -1,5 +1,5 @@
 import { events } from "@mousecomb/bindings";
-import { connectBackendEvents } from "@mousecomb/data";
+import { connectBackendEvents, useBackendEvent } from "@mousecomb/data";
 import { Toaster } from "@mousecomb/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
@@ -15,15 +15,14 @@ export function App() {
   // Rust pushes account, sync, timer and update changes; keep the query cache current.
   useEffect(() => connectBackendEvents(queryClient), []);
 
-  // The OmniBar asks the Settings window to open a page. Events reach every
-  // window, so only the Settings window follows it.
-  useEffect(() => {
-    if (document.documentElement.dataset.window !== "main") return;
-    const stop = events.navigateRequested.listen((e) => {
-      if (isSettingsPage(e.payload.to)) void router.navigate({ to: e.payload.to });
-    });
-    return () => void stop.then((f) => f());
-  }, []);
+  // The OmniBar asks the Settings window to open a page; Rust sends it to that window only.
+  useBackendEvent(
+    events.navigateRequested,
+    ({ to }) => {
+      if (isSettingsPage(to)) void router.navigate({ to });
+    },
+    "this-window",
+  );
 
   return (
     <QueryClientProvider client={queryClient}>

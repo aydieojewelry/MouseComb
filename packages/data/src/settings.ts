@@ -4,6 +4,7 @@ import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { z } from "zod";
 
+import { queryKeys } from "./account";
 import { unwrap } from "./errors";
 import { createItemCollection } from "./items";
 
@@ -72,7 +73,7 @@ export const LOCAL_SETTINGS = {
 
 export function localSettingQuery<T>(def: SettingDef<T>) {
   return queryOptions({
-    queryKey: ["local-setting", def.key] as const,
+    queryKey: [...queryKeys.localSettings, def.key] as const,
     queryFn: async () => {
       const raw = await unwrap(commands.localSettingGet(def.key));
       const parsed = def.schema.safeParse(raw);

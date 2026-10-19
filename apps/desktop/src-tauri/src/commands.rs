@@ -80,7 +80,7 @@ pub fn server_url_get(state: State<'_, AppState>) -> String {
 #[specta::specta]
 pub fn server_url_set(state: State<'_, AppState>, url: String) -> CommandResult<()> {
     let url = url.trim().trim_end_matches('/');
-    if !(url.starts_with("https://") || url.starts_with("http://")) {
+    if !mc_core::actions::is_web_url(url) {
         return Err(CommandError::new(ErrorCode::Validation, "The server address must start with https://"));
     }
     if state.account().is_some() {
@@ -166,7 +166,7 @@ pub fn app_info(app: AppHandle) -> AppInfo {
 #[tauri::command]
 #[specta::specta]
 pub fn commands_list() -> Vec<mc_core::actions::Command> {
-    mc_core::actions::catalog()
+    mc_core::actions::catalog().to_vec()
 }
 
 /// Installed apps (FEAT-023). Empty until the first scan finishes; an

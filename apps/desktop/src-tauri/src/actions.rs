@@ -17,10 +17,6 @@ use crate::overlays::{self, HudFlash, OMNIBAR};
 use crate::state::AppState;
 use crate::{pomodoro, prefs, sync_loop, updates};
 
-/// Boolean settings `setting.toggle` may flip (with their defaults).
-const TOGGLES: &[(&str, bool)] =
-    &[(prefs::HUD_ENABLED, true), ("hud.show_seconds", false), ("pomodoro.auto_start", false)];
-
 #[derive(Clone, Debug, Default, Serialize, Type)]
 pub struct ActionResult {
     /// A short confirmation for the HUD, e.g. "Copied".
@@ -68,8 +64,7 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
     if !actions::is_known(action) {
         return Err(CommandError::new(ErrorCode::Validation, format!("There's no action called {action}.")));
     }
-    let needs_confirm = actions::catalog().iter().any(|c| c.action == action && c.confirm);
-    if needs_confirm && !confirmed {
+    if actions::needs_confirmation(action) && !confirmed {
         return Err(CommandError::new(ErrorCode::Validation, "Confirm this action first."));
     }
 
@@ -102,18 +97,17 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
             }))
         }
         id::UPDATE_INSTALL => updates::install(app).map(|()| ActionResult::default()),
-        id::QUIT => crate::quit(app),
+        id::QUIT => {
+            crate::quit(app);
+            Ok(ActionResult::default())
+        }
         id::SETTING_TOGGLE => {
             let key = arg(with, "key")?;
-            let Some((_, default)) = TOGGLES.iter().find(|(k, _)| *k == key) else {
+            let Some(default) = prefs::toggle_default(key) else {
                 return Err(CommandError::new(ErrorCode::Validation, format!("{key} can't be toggled.")));
             };
             let store = &app.state::<AppState>().store;
-            let current = store
-                .get(mc_core::kind::SETTING, key)?
-                .filter(|i| !i.deleted)
-                .and_then(|i| i.data.as_bool())
-                .unwrap_or(*default);
+            let current = prefs::setting(store, key).and_then(|v| v.as_bool()).unwrap_or(default);
             store.put(mc_core::kind::SETTING, key, Value::Bool(!current))?;
             Ok(ActionResult::default())
         }
@@ -126,7 +120,7 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
                 _ => p.reset(cfg),
             });
             let phase = pomodoro::phase_name(timer.phase);
-            Ok(ActionResult::say(match (action, timer.running) {
+            Ok(ActionResult::say(match (action, timer.running()) {
                 (id::POMODORO_RESET, _) => "Pomodoro reset".to_owned(),
                 (_, true) => format!("{phase} started"),
                 (_, false) => format!("{phase} paused"),
@@ -143,7 +137,12 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
             let now = chrono::Local::now();
             let (date, time) = (now.format("%Y-%m-%d").to_string(), now.format("%H:%M:%S").to_string());
             let user = std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_default();
-            let clipboard = app.clipboard().read_text().unwrap_or_default();
+            // Reading the clipboard can be slow (the owning app renders it), so only when used.
+            let clipboard = if snippet.text.contains("{CLIPBOARD}") {
+                app.clipboard().read_text().unwrap_or_default()
+            } else {
+                String::new()
+            };
             let tokens = mc_core::SnippetTokens { date: &date, time: &time, user: &user, clipboard: &clipboard };
             set_clipboard(app, &mc_core::fill_snippet(&snippet.text, &tokens))?;
             Ok(ActionResult::say(format!("Copied “{}”", snippet.title)))
@@ -155,7 +154,7 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
         }
         id::OPEN_URL => {
             let url = arg(with, "url")?;
-            if !(url.starts_with("https://") || url.starts_with("http://")) {
+            if !actions::is_web_url(url) {
                 return Err(CommandError::new(ErrorCode::Validation, "Only web addresses can be opened."));
             }
             open(app, url)

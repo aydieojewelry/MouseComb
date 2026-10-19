@@ -89,6 +89,24 @@ pub struct AppState {
     pub apps_loading: AtomicBool,
     pub updates: Mutex<Updates>,
     pub omnibar_shown_at: Mutex<Option<Instant>>,
+    /// A settings reload is already scheduled (bursts share one).
+    pub prefs_reload_pending: AtomicBool,
+    /// Wakes the Pomodoro task when the timer changes.
+    pub pomodoro_wake: tokio::sync::Notify,
+    /// Where the HUD is on screen, for the proximity fade; `None` while hidden.
+    pub hud_rect: Mutex<Option<HudRect>>,
+    /// Wakes the fade loop when the HUD is shown.
+    pub hud_wake: tokio::sync::Notify,
+}
+
+/// The HUD's frame in physical pixels and its screen's scale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HudRect {
+    pub left: f64,
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+    pub scale: f64,
 }
 
 impl AppState {
@@ -124,12 +142,20 @@ impl AppState {
             apps_loading: AtomicBool::new(false),
             updates: Mutex::new(Updates::default()),
             omnibar_shown_at: Mutex::new(None),
+            prefs_reload_pending: AtomicBool::new(false),
+            pomodoro_wake: tokio::sync::Notify::new(),
+            hud_rect: Mutex::new(None),
+            hud_wake: tokio::sync::Notify::new(),
             store,
         })
     }
 
     pub fn prefs(&self) -> Prefs {
         self.prefs.read().expect("prefs lock").clone()
+    }
+
+    pub fn pomodoro_config(&self) -> mc_core::pomodoro::Config {
+        self.prefs.read().expect("prefs lock").pomodoro
     }
 
     pub fn server_url(&self) -> String {

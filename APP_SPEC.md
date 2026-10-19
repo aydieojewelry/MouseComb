@@ -14,7 +14,7 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: pre-production          # first installable release at the end of M1 (§11)
-build: B-0007                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
+build: B-0008                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -319,7 +319,7 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 | Command | How |
 |---|---|
 | Calculator | Own parser, no `eval`: `+ − × ÷ ^ ( )`, `200 * 15%` = 30, `x + 12%` adds 12 %, `pi`, `e`, sqrt/abs/round/floor/ceil/sin/cos/tan/log/ln, `2pi`. A bare number isn't a sum. Enter copies the result. |
-| Apps | `Get-StartApps` (desktop and Store apps, as Start shows them; uninstallers hidden), cached and refreshed when the OmniBar opens and the list is over 5 min old. Launch via `explorer.exe shell:AppsFolder\<AppID>`; AppIDs with quotes or control characters are refused. (DEC-023) |
+| Apps | `Get-StartApps` (desktop and Store apps, as Start shows them; uninstallers hidden), cached; first scanned 30 s after start, then again when the OmniBar opens and the list is over 15 min old. Launch via `explorer.exe shell:AppsFolder\<AppID>`; AppIDs with quotes or control characters are refused. (DEC-023) |
 | Snippets | Copies the snippet with `{DATE}` `{TIME}` `{USER}` `{CLIPBOARD}` filled in (`mc_core::fill_snippet`). Typing it into the app needs `keys:send` (M3). |
 | Web | Web addresses open in the browser; anything else can be searched on the web. Only `http(s)` URLs open. |
 | Windows Settings | 8 common `ms-settings:` pages from an allow-list. |
@@ -327,7 +327,7 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 | MouseComb | Open Settings or any of its pages, Sync now, Check for updates / Restart to update, show or hide the clock (`setting.toggle`), Quit, Pomodoro start/pause, skip, reset. |
 
 ### FEAT-002 — Pomodoro (M1, in the core)
-- Timer is a pure state machine in `mc_core::pomodoro` (time passed in), ticked by the desktop every 500 ms and saved on each change to the device-only `pomodoro.state`, so it survives a restart.
+- Timer is a pure state machine in `mc_core::pomodoro` (time passed in; "running" is simply `ends_at` being set), saved on each change to the device-only `pomodoro.state`, so it survives a restart. The desktop task sleeps while the timer is stopped and wakes at least once a second while it runs.
 - Settings (synced): `pomodoro.focus_min` 25, `short_break_min` 5, `long_break_min` 15, `long_break_every` 4, `auto_start` false. New lengths apply to a phase that hasn't started.
 - When a phase ends: a notification; a finished focus phase is saved as a synced item of kind `pomodoro` (`started_at`, `ended_at`, `minutes`) for stats. After sleep, only one phase ends (the next one counts from wake-up).
 - Shown in the HUD, the OmniBar ("Pause Pomodoro · Focus 12:03 left"), the tray, and Settings → Pomodoro (ring, Start/Pause, Skip, Reset, sessions today and last 7 days).
@@ -420,8 +420,8 @@ Restart-Service Audiosrv
 - Paid extensions: not in v1 (DEC-012).
 
 ### FEAT-001 — HUD host
-- Transparent, borderless, always-on-top, click-through window, bottom-right of the primary screen's work area (re-placed every 10 s for screen changes). Shows widgets from extensions (clock, pomodoro, weather by default) in the order you choose.
-- **M1:** clock (locale time format, seconds optional), the date, or the Pomodoro countdown while a timer is running or paused, and 1.8 s flashes from actions. `hud.enabled` shows or hides it (Settings, OmniBar, tray). Rust polls the cursor at 20 Hz, but only while the HUD is visible, and sends an opacity only when it changes.
+- Transparent, borderless, always-on-top, click-through window, bottom-right of the primary screen's work area, placed by its configured size (220×76) so placement works before the window exists natively; re-placed every 10 s for screen changes. Shows widgets from extensions (clock, pomodoro, weather by default) in the order you choose.
+- **M1:** clock (locale time format, seconds optional), the date, or the Pomodoro countdown while a timer is running or paused, and 1.8 s flashes from actions. `hud.enabled` shows or hides it (Settings, OmniBar, tray). Rust polls the cursor at 20 Hz only while the HUD is visible (the loop sleeps otherwise), measures against the HUD's known position, and sends an opacity only when it changes.
 - **Proximity fade:** opacity follows the cursor's distance. Hidden within `hud.fade_near_px`, fully visible beyond `hud.fade_far_px`.
 - **Holding Ctrl** makes it clickable. A widget's `Ctrl+click` / `Ctrl+right-click` run actions it declares.
 

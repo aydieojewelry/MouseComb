@@ -4,7 +4,7 @@
 //! Only release builds can update: the release workflow writes the updater
 //! public key into tauri.conf.json (PIPELINE.md). Without it updates are off.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -14,10 +14,11 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use tauri_specta::Event;
 
 use crate::error::{CommandError, CommandResult, ErrorCode};
+use crate::now_ms;
 use crate::state::AppState;
 
 const FIRST_CHECK_AFTER: Duration = Duration::from_secs(20);
-const CHECK_EVERY_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
+const CHECK_EVERY_MS: i64 = 24 * 60 * 60 * 1000;
 /// Wake up hourly and compare wall-clock time, so a PC that slept still checks.
 const WAKE_EVERY: Duration = Duration::from_secs(60 * 60);
 
@@ -45,7 +46,8 @@ pub struct UpdateStatus {
     /// Download progress, 0 to 1, when the size is known.
     pub progress: Option<f64>,
     /// Last check, ms since the Unix epoch.
-    pub checked_at: Option<f64>,
+    #[specta(type = Option<specta_typescript::Number>)]
+    pub checked_at: Option<i64>,
     pub message: Option<String>,
 }
 
@@ -73,10 +75,6 @@ fn short_from_semver(version: &str) -> String {
         [w, x, yz] => short_version(*w, *x, *yz),
         _ => version.to_owned(),
     }
-}
-
-fn now_ms() -> f64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0.0, |d| d.as_millis() as f64)
 }
 
 pub fn enabled(app: &AppHandle) -> bool {
@@ -117,7 +115,7 @@ pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(FIRST_CHECK_AFTER).await;
         loop {
-            let last = status(&app).checked_at.unwrap_or(0.0);
+            let last = status(&app).checked_at.unwrap_or(0);
             if now_ms() - last >= CHECK_EVERY_MS {
                 let _ = check_now(&app).await;
             }
@@ -218,14 +216,6 @@ pub fn install(app: &AppHandle) -> CommandResult<()> {
         return Err(failed(app, &format!("Couldn't install the update: {e}")));
     }
     app.restart();
-}
-
-/// Called when the user quits: a downloaded update installs now.
-pub fn install_on_quit(app: &AppHandle) {
-    let has_pending = app.state::<AppState>().updates.lock().expect("updates lock").pending.is_some();
-    if has_pending {
-        let _ = install(app);
-    }
 }
 
 #[cfg(test)]

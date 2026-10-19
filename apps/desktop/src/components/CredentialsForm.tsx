@@ -4,16 +4,12 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { z } from "zod";
 
+import { issueText } from "./issueText";
+
 const credentialsSchema = z.object({
   email: z.email("Enter a valid email address."),
   password: z.string().min(8, "Use at least 8 characters.").max(71, "Use at most 71 characters."),
 });
-
-export function issueText(errors: unknown[]): string | undefined {
-  const first = errors.find(Boolean);
-  if (!first) return undefined;
-  return typeof first === "string" ? first : ((first as { message?: string }).message ?? "Check this field.");
-}
 
 /** Sign in or create an account (FEAT-021), with a password-reset link. */
 export function CredentialsForm(props: { onSignedIn?: () => void }) {

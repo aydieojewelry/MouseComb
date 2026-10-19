@@ -1,5 +1,5 @@
-import { LOCAL_SETTINGS, errorMessage, useHotkeyStatus, useLocalSetting } from "@mousecomb/data";
-import { Button, Kbd, Switch, TimerIcon, toaster, type Icon, BoltIcon, CloudSyncIcon } from "@mousecomb/ui";
+import { LOCAL_SETTINGS, SETTINGS, errorMessage, useHotkeyStatus, useLocalSetting } from "@mousecomb/data";
+import { BoltIcon, Button, CloudSyncIcon, ShortcutKeys, Switch, TimerIcon, toaster, type Icon } from "@mousecomb/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { enable } from "@tauri-apps/plugin-autostart";
@@ -28,7 +28,7 @@ export function WelcomePage() {
   const [, setDone] = useLocalSetting(LOCAL_SETTINGS.onboardingDone);
   const [telemetry, setTelemetry] = useLocalSetting(LOCAL_SETTINGS.telemetryEnabled);
   const [startWithWindows, setStartWithWindows] = useState(true);
-  const keys = (hotkey?.hotkey ?? "Alt+Space").split("+");
+  const shortcut = hotkey?.hotkey ?? SETTINGS.omnibarHotkey.default;
 
   const finish = async () => {
     try {
@@ -39,7 +39,7 @@ export function WelcomePage() {
     }
     await setDone(true);
     await navigate({ to: "/general" });
-    toaster.success({ title: "You're set", description: `Press ${keys.join("+")} anywhere to open the OmniBar.` });
+    toaster.success({ title: "You're set", description: `Press ${shortcut} anywhere to open the OmniBar.` });
   };
 
   return (
@@ -52,14 +52,7 @@ export function WelcomePage() {
           </div>
           <ul className="m-0 flex list-none flex-col gap-4 p-0">
             <Point icon={BoltIcon} title="The OmniBar">
-              Press{" "}
-              {keys.map((k, i) => (
-                <span key={k}>
-                  {i > 0 && " + "}
-                  <Kbd>{k}</Kbd>
-                </span>
-              ))}{" "}
-              anywhere to open apps, run commands, do sums, search the web and open Settings.
+              Press <ShortcutKeys shortcut={shortcut} separator=" + " /> anywhere to open apps, run commands, do sums, search the web and open Settings.
             </Point>
             <Point icon={TimerIcon} title="Clock and Pomodoro">
               A small clock sits in the corner of your screen and fades when your mouse comes near. Start a focus session

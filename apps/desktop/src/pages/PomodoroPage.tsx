@@ -1,7 +1,9 @@
 import {
   errorMessage,
   formatClock,
+  isRunning,
   PHASE_LABEL,
+  pomodoroVerb,
   pomodoroSessionsCollection,
   remainingMs,
   sessionStats,
@@ -12,26 +14,16 @@ import {
 } from "@mousecomb/data";
 import { Button, PauseIcon, PlayIcon, Section, SkipIcon, Slider, Switch, SyncIcon, cx, toaster } from "@mousecomb/ui";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useEffect, useState } from "react";
-
 import { PageHeader } from "../components/PageHeader";
 import { useDraft } from "../components/useDraft";
-
-function useSecondTicks(active: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, [active]);
-  return now;
-}
+import { useNow } from "../components/useNow";
 
 function TimerSection() {
   const { data: timer } = usePomodoro();
   const [every] = useSetting(SETTINGS.pomodoroLongBreakEvery);
   const run = useRunAction();
-  const now = useSecondTicks(Boolean(timer?.running));
+  const running = timer ? isRunning(timer) : false;
+  const now = useNow(1000, running);
   if (!timer) return null;
 
   const left = remainingMs(timer, now);
@@ -67,8 +59,8 @@ function TimerSection() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => act("ext.mc.pomodoro.toggle")}>
-              {timer.running ? <PauseIcon /> : <PlayIcon />}
-              {timer.running ? "Pause" : timer.fresh ? "Start" : "Resume"}
+              {running ? <PauseIcon /> : <PlayIcon />}
+              {pomodoroVerb(timer)}
             </Button>
             <Button onClick={() => act("ext.mc.pomodoro.skip")}>
               <SkipIcon />

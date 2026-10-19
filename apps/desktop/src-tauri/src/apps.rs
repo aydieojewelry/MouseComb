@@ -1,6 +1,6 @@
-//! A cached list of installed apps for the OmniBar (FEAT-023). Listing takes
-//! about a second on Windows, so it runs in the background at startup and
-//! again when the OmniBar opens and the list is older than a few minutes.
+//! A cached list of installed apps for the OmniBar (FEAT-023). Listing starts
+//! a PowerShell process (about a second), so it runs in the background: once
+//! shortly after start, and when the OmniBar opens with a list older than 15 min.
 
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -13,7 +13,9 @@ use tauri_specta::Event;
 
 use crate::state::AppState;
 
-const STALE_AFTER: Duration = Duration::from_secs(5 * 60);
+const STALE_AFTER: Duration = Duration::from_secs(15 * 60);
+/// Leave Windows sign-in alone: the first scan waits a little.
+const FIRST_SCAN_AFTER: Duration = Duration::from_secs(30);
 
 #[derive(Default)]
 pub struct AppsCache {
@@ -24,6 +26,13 @@ pub struct AppsCache {
 /// The app list changed; refetch it.
 #[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
 pub struct AppsChanged;
+
+pub fn scan_soon(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(FIRST_SCAN_AFTER).await;
+        refresh_if_stale(&app);
+    });
+}
 
 pub fn refresh_if_stale(app: &AppHandle) {
     let state = app.state::<AppState>();

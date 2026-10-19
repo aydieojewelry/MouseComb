@@ -92,7 +92,6 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
 
   let pomodoro: Pomodoro = {
     phase: "focus",
-    running: false,
     ends_at: null,
     remaining_ms: 25 * MINUTE,
     total_ms: 25 * MINUTE,
@@ -137,20 +136,21 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
     const now = Date.now();
     switch (action) {
       case "ext.mc.pomodoro.toggle":
-        if (pomodoro.running) {
-          setPomodoro({ running: false, ends_at: null, remaining_ms: Math.max(0, (pomodoro.ends_at ?? now) - now) });
+        if (pomodoro.ends_at !== null) {
+          setPomodoro({ ends_at: null, remaining_ms: Math.max(0, pomodoro.ends_at - now) });
           return { message: "Focus paused" };
         }
-        setPomodoro({ running: true, fresh: false, ends_at: now + pomodoro.remaining_ms, started_at: pomodoro.started_at ?? now });
+        setPomodoro({ fresh: false, ends_at: now + pomodoro.remaining_ms, started_at: pomodoro.started_at ?? now });
         return { message: "Focus started" };
       case "ext.mc.pomodoro.reset":
-        setPomodoro({ phase: "focus", running: false, ends_at: null, remaining_ms: 25 * MINUTE, total_ms: 25 * MINUTE, completed: 0, fresh: true, started_at: null });
+        setPomodoro({ phase: "focus", ends_at: null, remaining_ms: 25 * MINUTE, total_ms: 25 * MINUTE, completed: 0, fresh: true, started_at: null });
         return { message: "Pomodoro reset" };
       case "ext.mc.pomodoro.skip": {
         const phase = pomodoro.phase === "focus" ? "short_break" : "focus";
         const total = (phase === "focus" ? 25 : 5) * MINUTE;
-        setPomodoro({ phase, total_ms: total, remaining_ms: total, ends_at: pomodoro.running ? now + total : null, fresh: !pomodoro.running });
-        return { message: `${phase === "focus" ? "Focus" : "Short break"} ${pomodoro.running ? "started" : "paused"}` };
+        const running = pomodoro.ends_at !== null;
+        setPomodoro({ phase, total_ms: total, remaining_ms: total, ends_at: running ? now + total : null, fresh: !running });
+        return { message: `${phase === "focus" ? "Focus" : "Short break"} ${running ? "started" : "paused"}` };
       }
       case "setting.toggle": {
         const key = String(args.key);

@@ -5,6 +5,8 @@
 //! the same list. M1 ships the actions the OmniBar needs; the full native
 //! catalog arrives with the engine in M3.
 
+use std::sync::LazyLock;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -96,7 +98,13 @@ pub const WINDOWS_SETTINGS_PAGES: &[(&str, &str, &[&str])] = &[
 ];
 
 /// Everything the OmniBar lists besides apps, snippets and typed-in results.
-pub fn catalog() -> Vec<Command> {
+/// Built once; the action runner looks actions up here on every run.
+pub fn catalog() -> &'static [Command] {
+    static CATALOG: LazyLock<Vec<Command>> = LazyLock::new(build_catalog);
+    &CATALOG
+}
+
+fn build_catalog() -> Vec<Command> {
     use CommandGroup::*;
     let mut out = vec![command(
         id::SETTINGS_OPEN,
@@ -164,17 +172,32 @@ pub fn catalog() -> Vec<Command> {
     out
 }
 
+/// Actions that run but have no OmniBar entry of their own (they take
+/// arguments, like an app id, or appear only in some states).
+const UNLISTED: &[&str] = &[
+    id::OMNIBAR_OPEN,
+    id::UPDATE_INSTALL,
+    id::POMODORO_START,
+    id::POMODORO_PAUSE,
+    id::SNIPPET_COPY,
+    id::APP_LAUNCH,
+    id::OPEN_URL,
+    id::CLIPBOARD_SET,
+];
+
 /// Does this action exist? Anything else is rejected before it runs.
 pub fn is_known(action: &str) -> bool {
-    action == id::OMNIBAR_OPEN
-        || action == id::UPDATE_INSTALL
-        || action == id::POMODORO_START
-        || action == id::POMODORO_PAUSE
-        || action == id::SNIPPET_COPY
-        || action == id::APP_LAUNCH
-        || action == id::OPEN_URL
-        || action == id::CLIPBOARD_SET
-        || catalog().iter().any(|c| c.action == action)
+    UNLISTED.contains(&action) || catalog().iter().any(|c| c.action == action)
+}
+
+/// Destructive actions run only with `confirmed` (APP_SPEC §8).
+pub fn needs_confirmation(action: &str) -> bool {
+    catalog().iter().any(|c| c.action == action && c.confirm)
+}
+
+/// Only `http(s)` addresses are opened or used as servers.
+pub fn is_web_url(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://")
 }
 
 /// The fixed parts of a `ms-settings:` URI; anything else is refused.
@@ -198,9 +221,10 @@ mod tests {
 
     #[test]
     fn only_lock_skips_confirmation_among_power_actions() {
-        let power: Vec<_> = catalog().into_iter().filter(|c| c.action.starts_with("core.os.power.")).collect();
+        let power: Vec<_> = catalog().iter().filter(|c| c.action.starts_with("core.os.power.")).collect();
         assert_eq!(power.len(), 5);
         assert!(power.iter().all(|c| c.confirm == (c.action != id::LOCK)));
+        assert!(needs_confirmation(id::RESTART) && !needs_confirmation(id::LOCK));
     }
 
     #[test]
