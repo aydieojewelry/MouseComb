@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Install REA and the rebuild-app skill into your global (user-level) Claude Code.
+# Install REA, the app-builder skill and your intents profile into your
+# global (user-level) Claude Code.
 #
 #   ./install.sh          show REA's setup plan and ask before applying it
 #   ./install.sh --yes    apply without prompting (for cloud setup scripts)
@@ -27,17 +28,35 @@ if [[ -n "$approve" ]]; then
 else
   npx -y rea-agents@latest setup --client claude_code --dry-run
   read -r -p "Apply this plan? [y/N] " reply
-  [[ "$reply" =~ ^[Yy]$ ]] || { echo "Skipped REA setup."; exit 0; }
-  npx -y rea-agents@latest setup --client claude_code --yes
+  if [[ "$reply" =~ ^[Yy]$ ]]; then
+    npx -y rea-agents@latest setup --client claude_code --yes
+  else
+    echo "Skipped REA setup."
+  fi
 fi
 
-echo "==> Installing the rebuild-app skill to ${skills_dir}/rebuild-app"
+echo "==> Installing the app-builder skill to ${skills_dir}/app-builder"
 mkdir -p "$skills_dir"
-rm -rf "${skills_dir}/rebuild-app"
-cp -R "${repo_dir}/.claude/skills/rebuild-app" "${skills_dir}/rebuild-app"
+rm -rf "${skills_dir}/rebuild-app"   # earlier name of this skill
+rm -rf "${skills_dir}/app-builder"
+cp -R "${repo_dir}/.claude/skills/app-builder" "${skills_dir}/app-builder"
+
+# Link the intents file back to this clone so the builder's updates can be
+# committed and synced to other machines.
+intents_dir="${HOME}/.claude/app-builder"
+intents="${intents_dir}/INTENTS.md"
+echo "==> Linking your intents profile at ${intents}"
+mkdir -p "$intents_dir"
+if [[ -e "$intents" && ! -L "$intents" ]]; then
+  echo "    Kept your existing ${intents} (not a link). Merge it into"
+  echo "    ${repo_dir}/profile/INTENTS.md, delete it, and re-run to link."
+else
+  ln -sfn "${repo_dir}/profile/INTENTS.md" "$intents"
+fi
 
 echo "==> Verifying"
 npx -y rea-agents@latest mcp doctor | grep -E '^healthy:'
 test -f "${skills_dir}/reverse-engineer-anything/SKILL.md" && echo "skill: reverse-engineer-anything installed"
-test -f "${skills_dir}/rebuild-app/SKILL.md" && echo "skill: rebuild-app installed"
+test -f "${skills_dir}/app-builder/SKILL.md" && echo "skill: app-builder installed"
+test -f "$intents" && echo "intents: ${intents} -> $(readlink "$intents" || echo "local file")"
 echo "Done. Restart Claude Code so the REA tools load."
