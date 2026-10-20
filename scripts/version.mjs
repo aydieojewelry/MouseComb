@@ -2,13 +2,14 @@
 // MouseComb release versions (VERSIONING.md): x.y.z+b.
 //
 //   node scripts/version.mjs next               JSON for the next release, or {"release":false}
+//   node scripts/version.mjs plan               what the Release workflow should publish (see plan())
 //   node scripts/version.mjs apply <x.y.z+b>    write the version into the app manifests
 //   node scripts/version.mjs notes              Markdown release notes since the last tag
 //
 // No dependencies; Node 22+.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -108,6 +109,50 @@ export function releaseNotes(commits) {
   return lines.join("\n").trim();
 }
 
+/** The notes under `## <display>` in CHANGELOG.md, or null. */
+export function changelogSection(changelog, display) {
+  const lines = changelog.split("\n");
+  const at = lines.findIndex((l) => l.startsWith(`## ${display} `) || l.trim() === `## ${display}`);
+  if (at < 0) return null;
+  const rest = lines.slice(at + 1);
+  const stop = rest.findIndex((l) => l.startsWith("## "));
+  return rest.slice(0, stop < 0 ? undefined : stop).join("\n").trim();
+}
+
+/** The newest version CHANGELOG.md has a section for ("## 0.1.0+11 — …"), or null. */
+export function latestInChangelog(changelog) {
+  const m = /^## v?(\d+\.\d+\.\d+\+\d+)\b/m.exec(changelog);
+  return m ? m[1] : null;
+}
+
+/**
+ * What to release (VERSIONING.md "How to release"):
+ * - a pushed tag: that version;
+ * - a push that changed CHANGELOG.md: its newest version, if not tagged yet
+ *   (prototypes 0.y.z from any branch, 1.0.0 and later only from main);
+ * - otherwise (weekly train): the next version from the commits.
+ */
+export function plan({ tag, branch, changelog, tags, commits }) {
+  const known = new Set(tags);
+  const describe = (display, notesFromCommits) => {
+    const v = parseVersion(display);
+    return { release: true, ...forms(v), notes: changelogSection(changelog, forms(v).display) ?? notesFromCommits };
+  };
+  if (tag) {
+    if (!parseVersion(tag)) throw new Error(`Tag ${tag} is not vX.Y.Z+B (VERSIONING.md).`);
+    return describe(tag.replace(/^v/, ""), releaseNotes(commits));
+  }
+  if (branch) {
+    const display = latestInChangelog(changelog);
+    if (!display) return { release: false, reason: "CHANGELOG.md names no version" };
+    const v = parseVersion(display);
+    if (known.has(forms(v).tag)) return { release: false, reason: `${forms(v).tag} is already released` };
+    if (v.x >= 1 && branch !== "main") return { release: false, reason: "versions 1.0.0 and later release from main only" };
+    return describe(display, releaseNotes(commits));
+  }
+  return null;
+}
+
 function next() {
   const last = lastTag();
   const commits = commitsSince(last?.tag);
@@ -135,6 +180,16 @@ function apply(text) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [cmd, arg] = process.argv.slice(2);
   if (cmd === "next") console.log(JSON.stringify(next(), null, 2));
+  else if (cmd === "plan") {
+    // Inputs from the Release workflow: PUSHED_TAG or PUSHED_BRANCH (or neither for the weekly train).
+    const changelog = existsSync(`${ROOT}/CHANGELOG.md`) ? readFileSync(`${ROOT}/CHANGELOG.md`, "utf8") : "";
+    const tags = git("tag", "--list", "v*").split("\n").filter(Boolean);
+    const last = lastTag();
+    const tag = process.env.PUSHED_TAG || null;
+    const commits = commitsSince(last && last.tag !== tag ? last.tag : null);
+    const out = plan({ tag, branch: process.env.PUSHED_BRANCH || null, changelog, tags, commits }) ?? next();
+    console.log(JSON.stringify(out, null, 2));
+  }
   else if (cmd === "apply") console.log(JSON.stringify(apply(arg)));
   else if (cmd === "notes") console.log(releaseNotes(commitsSince(lastTag()?.tag)));
   else {

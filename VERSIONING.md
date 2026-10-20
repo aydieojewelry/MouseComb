@@ -37,7 +37,7 @@ MSI installers need `x` and `y` ≤ 255 and `z` ≤ 65535; the release script st
 
 ## How to release
 
-- **A chosen version (owner):** add its section to `CHANGELOG.md`, then push the tag, e.g. `git tag v0.2.0+12 && git push origin v0.2.0+12`. The Release workflow builds Windows and Linux installers and publishes the GitHub Release with that section as its notes.
+- **A chosen version (owner):** add a section `## X.Y.Z+B — date — title` at the top of `CHANGELOG.md` and push. The Release workflow sees a version with no tag yet, builds the Windows and Linux installers, tags the pushed commit `vX.Y.Z+B` and publishes the GitHub Release with that section as its notes. Prototypes (`0.y.z`) can go out from any branch; `1.0.0` and later only from `main`. Pushing a tag `vX.Y.Z+B` does the same.
 - **The weekly train:** once `RELEASES_ENABLED` is `true`, the Release workflow runs every Tuesday (or by hand), picks the next version from the commits, tags `main` and publishes it.
 
 ## Branches and releases

@@ -1,6 +1,6 @@
 # Changelog
 
-What changed for people using MouseComb, per release. Versions are `x.y.z+b` ([VERSIONING.md](VERSIONING.md)); `0.y.z` releases are prototypes.
+What changed for people using MouseComb, per release. Versions are `x.y.z+b` ([VERSIONING.md](VERSIONING.md)); `0.y.z` releases are prototypes. Adding a new version section here and pushing it publishes that release.
 
 ## 0.1.0+11 — 2026-10-20 — first prototype
 

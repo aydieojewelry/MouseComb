@@ -1,5 +1,7 @@
 # Releases (VERSIONING.md, PIPELINE.md §5): versions are x.y.z+b.
-# - Pushing a tag `vX.Y.Z+B` releases exactly that version (the owner's call).
+# - A push that adds a version section to CHANGELOG.md releases that version
+#   (prototypes 0.y.z from any branch, 1.0.0 and later only from main).
+# - Pushing a tag `vX.Y.Z+B` releases exactly that version.
 # - The weekly train (Tuesdays, or "Run workflow") picks the next version from
 #   the commits since the last tag; it stays off until RELEASES_ENABLED is "true".
 # Versions 0.y.z are published as prototypes (pre-releases).
@@ -9,6 +11,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+    branches: ["**"]
+    paths: [CHANGELOG.md]
   schedule:
     - cron: "17 6 * * 2" # Tuesdays 06:17 UTC
   workflow_dispatch:
@@ -41,51 +45,21 @@ jobs:
           node-version: 22
       - id: next
         env:
-          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
+          PUSHED_BRANCH: ${{ github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name || '' }}
         run: |
-          node --input-type=module -e '
-            const v = await import("./scripts/version.mjs");
-            const { execFileSync } = await import("node:child_process");
-            const git = (...a) => execFileSync("git", a, { encoding: "utf8" }).trim();
-            let out;
-            const pushed = process.env.PUSHED_TAG;
-            if (pushed) {
-              const parsed = v.parseVersion(pushed);
-              if (!parsed) { console.error(`Tag ${pushed} is not vX.Y.Z+B (VERSIONING.md).`); process.exit(1); }
-              const tags = git("tag", "--list", "v*").split("\n").filter((t) => t && t !== pushed && v.parseVersion(t));
-              const previous = tags.sort((a, b) => v.compare(v.parseVersion(b), v.parseVersion(a)))[0];
-              const log = git("log", previous ? `${previous}..${pushed}` : pushed, "--format=%s%x1f%b%x1e");
-              const commits = log.split("\x1e").map((r) => r.trim()).filter(Boolean).map((r) => {
-                const [subject, body = ""] = r.split("\x1f");
-                return { subject: subject.trim(), body: body.trim() };
-              });
-              // Notes come from the version's section in CHANGELOG.md when there is one.
-              const fs = await import("node:fs");
-              const changelog = fs.existsSync("CHANGELOG.md") ? fs.readFileSync("CHANGELOG.md", "utf8") : "";
-              const head = `## ${v.forms(parsed).display}`;
-              const at = changelog.split("\n").findIndex((l) => l.startsWith(head));
-              let notes = v.releaseNotes(commits);
-              if (at >= 0) {
-                const rest = changelog.split("\n").slice(at + 1);
-                const stop = rest.findIndex((l) => l.startsWith("## "));
-                notes = rest.slice(0, stop < 0 ? undefined : stop).join("\n").trim();
-              }
-              out = { release: true, ...v.forms(parsed), notes };
-            } else {
-              out = JSON.parse(execFileSync("node", ["scripts/version.mjs", "next"], { encoding: "utf8" }));
-            }
-            console.log(JSON.stringify(out, null, 2));
-            const fs = await import("node:fs");
-            const lines = [
-              `release=${out.release}`,
-              `tag=${out.tag ?? ""}`,
-              `display=${out.display ?? ""}`,
-              `prerelease=${out.prerelease ?? false}`,
-              `build=${out.build ?? 0}`,
-              `notes<<EOF_NOTES`, out.notes ?? "", "EOF_NOTES",
-            ];
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join("\n") + "\n");
-          '
+          node scripts/version.mjs plan > plan.json
+          cat plan.json
+          {
+            echo "release=$(node -p 'require("./plan.json").release')"
+            echo "tag=$(node -p 'require("./plan.json").tag ?? ""')"
+            echo "display=$(node -p 'require("./plan.json").display ?? ""')"
+            echo "prerelease=$(node -p 'require("./plan.json").prerelease ?? false')"
+            echo "build=$(node -p 'require("./plan.json").build ?? 0')"
+            echo "notes<<EOF_NOTES"
+            node -p 'require("./plan.json").notes ?? ""'
+            echo "EOF_NOTES"
+          } >> "$GITHUB_OUTPUT"
 
   # One draft release that both platform builds upload to; published once both are in.
   draft:

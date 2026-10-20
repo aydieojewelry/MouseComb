@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { biggestBump, bumpOf, bumpVersion, forms, parseVersion, releaseNotes } from "./version.mjs";
+import { biggestBump, bumpOf, bumpVersion, changelogSection, forms, latestInChangelog, parseVersion, plan, releaseNotes } from "./version.mjs";
 
 test("parses x.y.z+b with or without v and build", () => {
   assert.deepEqual(parseVersion("v0.2.3+36"), { x: 0, y: 2, z: 3, b: 36 });
@@ -48,4 +48,28 @@ test("release notes group by kind and drop prefixes", () => {
     { subject: "docs: readme" },
   ]);
   assert.equal(notes, "### New\n- calculator\n\n### Fixed\n- tray icon");
+});
+
+const CHANGELOG = "# Changelog\n\nIntro.\n\n## 0.2.0+12 — 2026-11-01\n\n### New\n- Thing\n\n## 0.1.0+11 — 2026-10-20 — first prototype\n\nOld notes.\n";
+
+test("CHANGELOG.md names the version to release and its notes", () => {
+  assert.equal(latestInChangelog(CHANGELOG), "0.2.0+12");
+  assert.equal(changelogSection(CHANGELOG, "0.2.0+12"), "### New\n- Thing");
+  assert.equal(changelogSection(CHANGELOG, "0.1.0+11"), "Old notes.");
+  assert.equal(changelogSection(CHANGELOG, "0.1.0+1"), null);
+});
+
+test("a push releases the newest CHANGELOG version once; 1.0+ only from main", () => {
+  const base = { tag: null, changelog: CHANGELOG, commits: [{ subject: "feat: thing" }] };
+  const p = plan({ ...base, branch: "claude/x", tags: ["v0.1.0+11"] });
+  assert.equal(p.release, true);
+  assert.equal(p.tag, "v0.2.0+12");
+  assert.equal(p.prerelease, true);
+  assert.equal(p.notes, "### New\n- Thing");
+  assert.equal(plan({ ...base, branch: "main", tags: ["v0.2.0+12"] }).release, false);
+  const prod = { ...base, changelog: "## 1.0.0+40\n\nHello" };
+  assert.equal(plan({ ...prod, branch: "claude/x", tags: [] }).release, false);
+  assert.equal(plan({ ...prod, branch: "main", tags: [] }).tag, "v1.0.0+40");
+  assert.equal(plan({ ...base, tag: "v0.1.0+11", branch: null, tags: [] }).notes, "Old notes.");
+  assert.equal(plan({ ...base, tag: null, branch: null, tags: [] }), null, "weekly train decides itself");
 });

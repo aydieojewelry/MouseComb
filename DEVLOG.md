@@ -15,8 +15,8 @@ Template:
 
 ## 0.1.0+11 — 2026-10-20 — First prototype release; versions are x.y.z+b
 - Owner decisions: publish a prototype now; versions are **`x.y.z+b`** (main feature, minor change, fix/patch, build) instead of `w.x.y.z+b`.
-- Done: `scripts/version.mjs` (+ tests) for `x.y.z+b` (installers use `x.y.z` as is, `0.y.z` is a pre-release, the build grows by one per release including hotfix rebuilds); VERSIONING.md rewritten; the app shows `x.y.z+b`; the Release workflow also runs on a pushed tag `vX.Y.Z+B` (notes from that version's `CHANGELOG.md` section) and ships without self-update until the updater key is set up; `CHANGELOG.md` added; spec, PIPELINE, README, CLAUDE.md updated. Bundle targets `all` (Windows: NSIS + MSI, Linux: AppImage + .deb + .rpm).
-- Released: tag `v0.1.0+11`, built and published by the Release workflow as a GitHub pre-release.
+- Done: `scripts/version.mjs` (+ tests) for `x.y.z+b` (installers use `x.y.z` as is, `0.y.z` is a pre-release, the build grows by one per release including hotfix rebuilds); VERSIONING.md rewritten; the app shows `x.y.z+b`; the Release workflow also releases the newest `CHANGELOG.md` version when a push adds it (prototypes from any branch, 1.0+ from `main` only; this session can't push tags) or on a pushed tag `vX.Y.Z+B`, with that version's section as notes (`version.mjs plan`, tested) and ships without self-update until the updater key is set up; `CHANGELOG.md` added; spec, PIPELINE, README, CLAUDE.md updated. Bundle targets `all` (Windows: NSIS + MSI, Linux: AppImage + .deb + .rpm).
+- Released: `v0.1.0+11`, built, tagged and published by the Release workflow as a GitHub pre-release.
 - Next: owner tries both installers; owner setup (PIPELINE.md) for signed self-updates and a hosted server.
 
 ## B-0010 — 2026-10-20 — Linux as a production target; installers in CI; PR
