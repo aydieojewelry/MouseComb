@@ -161,6 +161,15 @@ pub fn run() {
             let prefs = state.prefs();
             app.manage(state);
 
+            // The windows are created only now (`"create": false` in tauri.conf.json):
+            // their pages call commands that need the state above as soon as they
+            // load, and WebView2 can load before setup finishes.
+            let minimized = std::env::args().any(|a| a == MINIMIZED_ARG);
+            for config in app.config().app.windows.clone() {
+                let visible = config.visible && !(minimized && config.label == overlays::MAIN);
+                tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.visible(visible).build()?;
+            }
+
             tray::create(app.handle())?;
             sync_loop::start(app.handle().clone());
             pomodoro::start(app.handle().clone());
@@ -169,12 +178,6 @@ pub fn run() {
             overlays::set_hud_visible(app.handle(), prefs.hud_enabled);
             overlays::start_hud_fade(app.handle().clone());
             apps::scan_soon(app.handle().clone());
-
-            if std::env::args().any(|a| a == MINIMIZED_ARG)
-                && let Some(window) = app.get_webview_window(overlays::MAIN)
-            {
-                let _ = window.hide();
-            }
             Ok(())
         })
         .on_window_event(|window, event| match event {

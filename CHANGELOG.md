@@ -2,6 +2,19 @@
 
 What changed for people using MouseComb, per release. Versions are `x.y.z+b` ([VERSIONING.md](VERSIONING.md)); `0.y.z` releases are prototypes. Adding a new version section here and pushing it publishes that release.
 
+## 0.0.0+1 — 2026-10-20 — first build
+
+The first numbered build of MouseComb, for **Windows 10/11** and **Linux**: everything in the 0.1.0+11 prototype below, plus this fix.
+
+### Fixed
+- **Windows: the main window showed "Something went wrong!"** on start while the clock worked. Windows opened the window before MouseComb had finished starting, so its first request failed. Windows are now created only once MouseComb is ready, and if a page ever fails to load it says why and offers **Try again**.
+
+### Known limits
+- No server is set up yet: choose **Use offline** on the first screen, or point Account & sync at your own server.
+- This build doesn't update itself; install the next one over it. If 0.1.0+11 is installed, this one replaces it.
+- The installers aren't code-signed yet, so Windows SmartScreen may warn: **More info → Run anyway**.
+- Linux: the installed-apps list and power commands are Windows-only for now, and the `Alt+Space` shortcut needs an X11 session (not Wayland).
+
 ## 0.1.0+11 — 2026-10-20 — first prototype
 
 The first build you can install, for **Windows 10/11** and **Linux**. It's a prototype: try it and tell us what works and what doesn't. Later versions may change things.

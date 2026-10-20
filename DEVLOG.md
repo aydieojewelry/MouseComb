@@ -13,6 +13,13 @@ Template:
 
 ---
 
+## 0.0.0+1 — 2026-10-20 — Windows start-up fix; numbering restarts at 0.0.0+1
+- Owner report (0.1.0+11 on Windows): the main window showed "Something went wrong!" with an empty message while the clock worked.
+- Cause: Tauri creates the windows from tauri.conf.json before the setup hook runs, and WebView2 loads fast enough that the main window's first commands (`local_setting_get`, `account_get` in the `/` route's `beforeLoad`) arrived before `app.manage(AppState)`. Tauri rejects those with a plain string, so `AppError` had no message, and queries don't retry, so the error stayed. The HUD only uses live collections, which recover on the next event.
+- Fix: windows are `"create": false` and built in setup right after the state is managed (the main window starts hidden with `--minimized`); `AppError`/`errorMessage` turn untyped rejections into readable errors (+ tests); a router `ErrorPage` with **Try again**.
+- Verified: fresh profile in Xvfb opens on Welcome with the HUD and OmniBar working; tests, typecheck, clippy.
+- Owner decision: numbered builds start at **v0.0.0+1** (VERSIONING.md); the earlier 0.1.0+11 prototype stays published until the owner says otherwise.
+
 ## 0.1.0+11 — 2026-10-20 — First prototype release; versions are x.y.z+b
 - Owner decisions: publish a prototype now; versions are **`x.y.z+b`** (main feature, minor change, fix/patch, build) instead of `w.x.y.z+b`.
 - Done: `scripts/version.mjs` (+ tests) for `x.y.z+b` (installers use `x.y.z` as is, `0.y.z` is a pre-release, the build grows by one per release including hotfix rebuilds); VERSIONING.md rewritten; the app shows `x.y.z+b`; the Release workflow also releases the newest `CHANGELOG.md` version when a push adds it (prototypes from any branch, 1.0+ from `main` only; this session can't push tags) or on a pushed tag `vX.Y.Z+B`, with that version's section as notes (`version.mjs plan`, tested) and ships without self-update until the updater key is set up; `CHANGELOG.md` added; spec, PIPELINE, README, CLAUDE.md updated. Bundle targets `all` (Windows: NSIS + MSI, Linux: AppImage + .deb + .rpm).

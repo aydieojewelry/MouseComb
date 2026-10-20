@@ -21,7 +21,8 @@
         "theme": "Dark",
         "backgroundColor": "#0E0E10",
         "center": true,
-        "visible": true
+        "visible": true,
+        "create": false
       },
       {
         "label": "omnibar",
@@ -37,7 +38,8 @@
         "visible": false,
         "center": true,
         "shadow": true,
-        "theme": "Dark"
+        "theme": "Dark",
+        "create": false
       },
       {
         "label": "hud",
@@ -54,7 +56,8 @@
         "focus": false,
         "focusable": false,
         "shadow": false,
-        "theme": "Dark"
+        "theme": "Dark",
+        "create": false
       }
     ],
     "security": {

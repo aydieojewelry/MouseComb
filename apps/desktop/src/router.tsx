@@ -11,6 +11,8 @@ import {
 } from "@tanstack/react-router";
 import { z } from "zod";
 
+import { ErrorPage } from "./components/ErrorPage";
+
 // Each window loads only the code for its own route.
 const page = {
   shell: lazyRouteComponent(() => import("./components/Shell"), "Shell"),
@@ -80,6 +82,7 @@ export const router = createRouter({
   routeTree,
   history: createHashHistory(),
   defaultPreload: "intent",
+  defaultErrorComponent: ErrorPage,
   context: { queryClient: undefined! },
 });
 

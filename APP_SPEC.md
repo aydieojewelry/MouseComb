@@ -13,8 +13,8 @@
 ```yaml
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
-stage: prototype               # first release 0.1.0+11 (pre-release); production is 1.0.0 (M9)
-version: 0.1.0+11              # x.y.z+b (VERSIONING.md); b continues the B-000N build counter
+stage: prototype               # numbered builds start at 0.0.0+1 (pre-release); production is 1.0.0 (M9)
+version: 0.0.0+1               # x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -166,7 +166,7 @@ MouseComb/
 | Help | `/help/zen`, `/help/all` | centered, borderless |
 | Edge overlay | `/overlay` | per monitor, only while "Show on screen" is on |
 
-Windows are created at startup and hidden, so showing one is instant. Each route's code is loaded only by the window that shows it. Rust events reach every window, so window-specific listeners check which window they're in.
+Windows are created at startup and hidden, so showing one is instant. They are created in Rust's setup after the app state exists (`"create": false` in tauri.conf.json), because their pages call commands as soon as they load. A page that fails to load shows the reason and **Try again** (`ErrorPage`). Each route's code is loaded only by the window that shows it. Rust events reach every window, so window-specific listeners check which window they're in.
 
 ### Which tool does what
 

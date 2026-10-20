@@ -9,10 +9,10 @@ Every release is named **`x.y.z+b`**:
 | **z** | Fix / patch | Only bug fixes | — |
 | **b** | Build | Every release, including a hotfix rebuild of the same `x.y.z` | never resets |
 
-Examples: `0.1.0+11` (first prototype), `0.2.0+12` (a new feature), `0.2.1+13` (a Pomodoro tweak), `0.2.1+14` (the same code rebuilt as a hotfix, e.g. a broken installer), `0.2.2+15` (a crash fix), `1.0.0+40` (production 1.0).
+Examples: `0.0.0+1` (first build), `0.1.0+2` (a new feature), `0.1.1+3` (a Pomodoro tweak), `0.1.1+4` (the same code rebuilt as a hotfix, e.g. a broken installer), `0.1.2+5` (a crash fix), `1.0.0+40` (production 1.0).
 
 - **`0.y.z` is a prototype:** published as a GitHub pre-release. `1.0.0` is production (milestone M9).
-- **The build number `b` always grows by one per release**, so any two releases can be told apart by it alone. It continues the `B-000N` counter of `DEVLOG.md` (B-0010 was the last dev build; the first release is build 11).
+- **The build number `b` always grows by one per release**, so any two releases can be told apart by it alone. Numbering starts at **`v0.0.0+1`** (owner's decision, 2026-10-20; an earlier test prototype was published as `0.1.0+11`).
 
 ## How the next version is chosen
 

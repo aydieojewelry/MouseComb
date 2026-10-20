@@ -2,7 +2,7 @@
 
 A Windows companion that lets you bind **any key, gesture or screen edge** to **any Windows command, setting or workflow**, then add more with **free extensions**. Your setup syncs to your other PCs and to the MouseComb phone app.
 
-> **Status:** prototype **0.1.0+11** — [download it from Releases](https://github.com/aydieojewelry/MouseComb/releases). **M1 is built** for **Windows and Linux**: OmniBar with a Pomodoro timer, Clock with analog and digital faces, Pomodoro, first-launch sign-in and auto-updates. Self-updating releases start once the owner finishes the one-time GitHub setup in [`PIPELINE.md`](PIPELINE.md).
+> **Status:** prototype **0.0.0+1** — [download it from Releases](https://github.com/aydieojewelry/MouseComb/releases). **M1 is built** for **Windows and Linux**: OmniBar with a Pomodoro timer, Clock with analog and digital faces, Pomodoro, first-launch sign-in and auto-updates. Self-updating releases start once the owner finishes the one-time GitHub setup in [`PIPELINE.md`](PIPELINE.md).
 
 ## What works today
 - **OmniBar** on a global shortcut (`Alt+Space`, changeable): installed apps, commands, snippets, a calculator, web addresses and web search, Windows Settings pages, lock/sleep/restart (with a confirm step), and every Settings page
