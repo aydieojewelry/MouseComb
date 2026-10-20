@@ -234,7 +234,7 @@ export type UpdateState =
 
 export type UpdateStatus = {
 	state: UpdateState,
-	/**  The new version as `w.x.y.z`. */
+	/**  The new version as `x.y.z`. */
 	version: string | null,
 	notes: string | null,
 	/**  Download progress, 0 to 1, when the size is known. */

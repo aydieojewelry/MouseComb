@@ -13,8 +13,8 @@
 ```yaml
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
-stage: pre-production          # first installable release at the end of M1 (§11)
-build: B-0010                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
+stage: prototype               # first release 0.1.0+11 (pre-release); production is 1.0.0 (M9)
+version: 0.1.0+11              # x.y.z+b (VERSIONING.md); b continues the B-000N build counter
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -597,9 +597,8 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 
 Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**. How changes get from a branch to users (CI, approvals, releases, rollout): **[`PIPELINE.md`](PIPELINE.md)**.
 
-- Format **`w.x.y.z+b`**: major schematic uplift . feature update . patch . fix + build number.
-- Until the first release (end of M1): sessions are logged in `DEVLOG.md` as `B-000N`.
-- From the first release: weekly releases from `main` (hotfixes any day), tags `vw.x.y.z+b`, GitHub Releases, `CHANGELOG.md`, auto-updates. Installers and the updater use the form `w.x.(y·100+z)`; the build number is compiled in as `MOUSECOMB_BUILD`.
+- Format **`x.y.z+b`**: main feature . minor change . fix/patch + build (grows by one every release, hotfix rebuilds included). `0.y.z` releases are prototypes (GitHub pre-releases).
+- Releases: a pushed tag `vX.Y.Z+B` (owner's choice, notes from `CHANGELOG.md`) or the weekly train from `main` (hotfixes any day); GitHub Releases with Windows and Linux installers; auto-updates once the updater key is set up. Installers and the updater use `x.y.z`; the build number is compiled in as `MOUSECOMB_BUILD`.
 - Trunk-based branching: short-lived branches merged to `main` by pull request; worktrees for experiments.
 
 ## 14. Open decisions

@@ -40,7 +40,7 @@ pub enum UpdateState {
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Type, Event)]
 pub struct UpdateStatus {
     pub state: UpdateState,
-    /// The new version as `w.x.y.z`.
+    /// The new version as `x.y.z`.
     pub version: Option<String>,
     pub notes: Option<String>,
     /// Download progress, 0 to 1, when the size is known.
@@ -57,24 +57,15 @@ pub struct Updates {
     pending: Option<(Update, Vec<u8>)>,
 }
 
-/// `w.x.y.z+b` (VERSIONING.md) from the installer's `w.x.(y·100+z)` and the CI build number.
+/// `x.y.z+b` (VERSIONING.md): the installer's `x.y.z` and the build number.
 pub fn display_version(major: u64, minor: u64, patch: u64) -> String {
     let build = option_env!("MOUSECOMB_BUILD").unwrap_or("0");
-    format!("{}+{build}", short_version(major, minor, patch))
+    format!("{major}.{minor}.{patch}+{build}")
 }
 
-/// `w.x.y.z` from `w.x.(y·100+z)`.
-pub fn short_version(major: u64, minor: u64, patch: u64) -> String {
-    format!("{major}.{minor}.{}.{}", patch / 100, patch % 100)
-}
-
+/// `x.y.z` from an update's version, without build or pre-release parts.
 fn short_from_semver(version: &str) -> String {
-    let core = version.split(['+', '-']).next().unwrap_or(version);
-    let parts: Vec<u64> = core.split('.').filter_map(|p| p.parse().ok()).collect();
-    match parts.as_slice() {
-        [w, x, yz] => short_version(*w, *x, *yz),
-        _ => version.to_owned(),
-    }
+    version.split(['+', '-']).next().unwrap_or(version).to_owned()
 }
 
 pub fn enabled(app: &AppHandle) -> bool {
@@ -223,11 +214,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn versions_unpack_patch_and_fix() {
-        assert!(display_version(0, 2, 103).starts_with("0.2.1.3+"));
-        assert!(display_version(1, 0, 0).starts_with("1.0.0.0+"));
-        assert_eq!(short_from_semver("0.2.103"), "0.2.1.3");
-        assert_eq!(short_from_semver("0.10.1200+7"), "0.10.12.0");
-        assert_eq!(short_from_semver("weird"), "weird");
+    fn versions_read_as_x_y_z_plus_build() {
+        assert!(display_version(0, 2, 3).starts_with("0.2.3+"));
+        assert_eq!(short_from_semver("0.10.12+7"), "0.10.12");
+        assert_eq!(short_from_semver("1.0.0"), "1.0.0");
     }
 }

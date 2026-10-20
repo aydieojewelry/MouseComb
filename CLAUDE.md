@@ -3,7 +3,7 @@
 - `APP_SPEC.md` is the single source of truth. Read it and the top entry of `DEVLOG.md` before working. Don't read anything else for context unless the task needs it.
 - Cite IDs (`FEAT-xxx`, `DEC-xxx`). Update `APP_SPEC.md` in the same change when behavior, data, config or status changes.
 - At the end of a session: add a `DEVLOG.md` entry and bump `build` in `APP_SPEC.md` §1.
-- Versioning follows `VERSIONING.md` (`w.x.y.z+b`). Start commit messages with `uplift!:`, `feat:`, `patch:`, `fix:` (or `docs:`/`chore:`/`test:`/`ci:`); the prefix decides the next version. No tags or releases until the end of M1.
+- Versioning follows `VERSIONING.md` (`x.y.z+b`: main feature, minor change, fix, build). Start commit messages with `feat:`/`uplift!:`, `patch:`, `fix:` (or `docs:`/`chore:`/`test:`/`ci:`); the prefix decides the next version. Releases are tags `vX.Y.Z+B` built by the release workflow; only the owner decides to release.
 - When you add a human-readable file, add it to the Documents table in `README.md`.
 - Delivery: follow `.claude/skills/steward/SKILL.md` (build-test loop → PR with prefixed title → owner approval → squash merge). Never commit to `main`, never approve or merge without the owner, releases only via the release workflow (`PIPELINE.md`).
 

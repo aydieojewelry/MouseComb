@@ -53,9 +53,9 @@ flowchart LR
 
 ## 5 · Release
 - [`.github/workflows/release.yml`](.github/workflows/release.yml) runs every Tuesday and on demand:
-  1. `scripts/version.mjs next` reads commits since the last tag and picks the next `w.x.y.z+b`. No `feat`/`patch`/`fix`/`uplift` commits means no release.
+  1. A pushed tag `vX.Y.Z+B` releases exactly that version, with its `CHANGELOG.md` section as notes. Otherwise `scripts/version.mjs next` reads commits since the last tag and picks the next `x.y.z+b`; no `feat`/`patch`/`fix`/`uplift` commits means no release.
   2. **Waits for the owner to approve** the `release` environment.
-  3. Creates a draft release, builds and signs the Windows installers (NSIS, MSI) on a Windows runner and the Linux packages (AppImage, .deb, .rpm) on Ubuntu 22.04 in parallel, tags `vw.x.y.z+b`, and publishes the release with grouped notes and one `latest.json` for both platforms.
+  3. Creates a draft release, builds and signs the Windows installers (NSIS, MSI) on a Windows runner and the Linux packages (AppImage, .deb, .rpm) on Ubuntu 22.04 in parallel, tags `vX.Y.Z+B`, and publishes the release with grouped notes and one `latest.json` for both platforms.
 - Hotfix: merge a `fix:` PR, then run the workflow by hand.
 - After a release, an agent updates `CHANGELOG.md` from the release notes (`docs:` commit).
 

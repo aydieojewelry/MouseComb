@@ -2,7 +2,7 @@
 
 A Windows companion that lets you bind **any key, gesture or screen edge** to **any Windows command, setting or workflow**, then add more with **free extensions**. Your setup syncs to your other PCs and to the MouseComb phone app.
 
-> **Status:** pre-production, build B-0010. **M1 is built** for **Windows and Linux**: OmniBar with a Pomodoro timer, Clock with analog and digital faces, Pomodoro, first-launch sign-in and auto-updates. The first public release goes out once the owner finishes the one-time GitHub setup in [`PIPELINE.md`](PIPELINE.md) and it has been tried on a real Windows PC.
+> **Status:** prototype **0.1.0+11** — [download it from Releases](https://github.com/aydieojewelry/MouseComb/releases). **M1 is built** for **Windows and Linux**: OmniBar with a Pomodoro timer, Clock with analog and digital faces, Pomodoro, first-launch sign-in and auto-updates. Self-updating releases start once the owner finishes the one-time GitHub setup in [`PIPELINE.md`](PIPELINE.md).
 
 ## What works today
 - **OmniBar** on a global shortcut (`Alt+Space`, changeable): installed apps, commands, snippets, a calculator, web addresses and web search, Windows Settings pages, lock/sleep/restart (with a confirm step), and every Settings page
@@ -57,7 +57,8 @@ Every human-readable file in the repo:
 |---|---|
 | [`README.md`](README.md) | This page: what MouseComb is, how to run and check it |
 | [`APP_SPEC.md`](APP_SPEC.md) | Single source of truth: features, architecture, data & sync, privacy, licensing, milestones, decisions |
-| [`VERSIONING.md`](VERSIONING.md) | Version format `w.x.y.z+b`, how versions are chosen, branches and weekly releases (with git graphs) |
+| [`VERSIONING.md`](VERSIONING.md) | Version format `x.y.z+b`, how versions are chosen and released, branches (with git graphs) |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed for users in each release |
 | [`DEVLOG.md`](DEVLOG.md) | What each work session did, newest first |
 | [`PIPELINE.md`](PIPELINE.md) | How a change gets from a branch to users: build loop, review, merge, weekly release, rollout, Insights add-on |
 | [`CLAUDE.md`](CLAUDE.md) | Rules and commands for AI coding agents |

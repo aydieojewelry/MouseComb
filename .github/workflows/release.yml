@@ -1,9 +1,14 @@
-# Weekly release train (VERSIONING.md, PIPELINE.md §4).
-# Off until the repository variable RELEASES_ENABLED is "true" (end of M1).
-# Publishing waits for a human approval on the "release" environment.
+# Releases (VERSIONING.md, PIPELINE.md §5): versions are x.y.z+b.
+# - Pushing a tag `vX.Y.Z+B` releases exactly that version (the owner's call).
+# - The weekly train (Tuesdays, or "Run workflow") picks the next version from
+#   the commits since the last tag; it stays off until RELEASES_ENABLED is "true".
+# Versions 0.y.z are published as prototypes (pre-releases).
+# Publishing waits for a human approval on the "release" environment when it has reviewers.
 name: Release
 
 on:
+  push:
+    tags: ["v*"]
   schedule:
     - cron: "17 6 * * 2" # Tuesdays 06:17 UTC
   workflow_dispatch:
@@ -17,13 +22,15 @@ concurrency:
 
 jobs:
   plan:
-    name: Work out the next version
-    if: vars.RELEASES_ENABLED == 'true'
+    name: Work out the version
+    if: github.event_name == 'push' || vars.RELEASES_ENABLED == 'true'
     runs-on: ubuntu-24.04
     outputs:
       release: ${{ steps.next.outputs.release }}
       tag: ${{ steps.next.outputs.tag }}
       display: ${{ steps.next.outputs.display }}
+      prerelease: ${{ steps.next.outputs.prerelease }}
+      build: ${{ steps.next.outputs.build }}
       notes: ${{ steps.next.outputs.notes }}
     steps:
       - uses: actions/checkout@v4
@@ -33,17 +40,52 @@ jobs:
         with:
           node-version: 22
       - id: next
+        env:
+          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
         run: |
-          node scripts/version.mjs next --build "$GITHUB_RUN_NUMBER" > next.json
-          cat next.json
-          {
-            echo "release=$(node -p 'require("./next.json").release')"
-            echo "tag=$(node -p 'require("./next.json").tag ?? ""')"
-            echo "display=$(node -p 'require("./next.json").display ?? ""')"
-            echo "notes<<EOF_NOTES"
-            node -p 'require("./next.json").notes ?? ""'
-            echo "EOF_NOTES"
-          } >> "$GITHUB_OUTPUT"
+          node --input-type=module -e '
+            const v = await import("./scripts/version.mjs");
+            const { execFileSync } = await import("node:child_process");
+            const git = (...a) => execFileSync("git", a, { encoding: "utf8" }).trim();
+            let out;
+            const pushed = process.env.PUSHED_TAG;
+            if (pushed) {
+              const parsed = v.parseVersion(pushed);
+              if (!parsed) { console.error(`Tag ${pushed} is not vX.Y.Z+B (VERSIONING.md).`); process.exit(1); }
+              const tags = git("tag", "--list", "v*").split("\n").filter((t) => t && t !== pushed && v.parseVersion(t));
+              const previous = tags.sort((a, b) => v.compare(v.parseVersion(b), v.parseVersion(a)))[0];
+              const log = git("log", previous ? `${previous}..${pushed}` : pushed, "--format=%s%x1f%b%x1e");
+              const commits = log.split("\x1e").map((r) => r.trim()).filter(Boolean).map((r) => {
+                const [subject, body = ""] = r.split("\x1f");
+                return { subject: subject.trim(), body: body.trim() };
+              });
+              // Notes come from the version's section in CHANGELOG.md when there is one.
+              const fs = await import("node:fs");
+              const changelog = fs.existsSync("CHANGELOG.md") ? fs.readFileSync("CHANGELOG.md", "utf8") : "";
+              const head = `## ${v.forms(parsed).display}`;
+              const at = changelog.split("\n").findIndex((l) => l.startsWith(head));
+              let notes = v.releaseNotes(commits);
+              if (at >= 0) {
+                const rest = changelog.split("\n").slice(at + 1);
+                const stop = rest.findIndex((l) => l.startsWith("## "));
+                notes = rest.slice(0, stop < 0 ? undefined : stop).join("\n").trim();
+              }
+              out = { release: true, ...v.forms(parsed), notes };
+            } else {
+              out = JSON.parse(execFileSync("node", ["scripts/version.mjs", "next"], { encoding: "utf8" }));
+            }
+            console.log(JSON.stringify(out, null, 2));
+            const fs = await import("node:fs");
+            const lines = [
+              `release=${out.release}`,
+              `tag=${out.tag ?? ""}`,
+              `display=${out.display ?? ""}`,
+              `prerelease=${out.prerelease ?? false}`,
+              `build=${out.build ?? 0}`,
+              `notes<<EOF_NOTES`, out.notes ?? "", "EOF_NOTES",
+            ];
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join("\n") + "\n");
+          '
 
   # One draft release that both platform builds upload to; published once both are in.
   draft:
@@ -59,22 +101,37 @@ jobs:
         uses: actions/github-script@v7
         env:
           TAG: ${{ needs.plan.outputs.tag }}
-          NAME: MouseComb ${{ needs.plan.outputs.display }}
+          DISPLAY_VERSION: ${{ needs.plan.outputs.display }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}
           NOTES: ${{ needs.plan.outputs.notes }}
         with:
           script: |
+            const prototype = process.env.PRERELEASE === "true";
+            const body = [
+              prototype
+                ? "**Prototype.** For testing: things will change, and data may need to be set up again in a later version."
+                : "",
+              process.env.NOTES,
+              "",
+              "### Downloads",
+              "- **Windows 10/11:** `MouseComb_*_x64-setup.exe` (installs for you only, no admin) or the `.msi`.",
+              "- **Linux x64:** the `.AppImage` (make it executable and run it), the `.deb` (Ubuntu, Debian) or the `.rpm` (Fedora, openSUSE).",
+              "",
+              "The installers aren't code-signed yet, so Windows SmartScreen may warn: choose **More info → Run anyway**.",
+            ].filter((line, i) => line !== "" || i > 0).join("\n");
             const { data } = await github.rest.repos.createRelease({
               ...context.repo,
               tag_name: process.env.TAG,
               target_commitish: context.sha,
-              name: process.env.NAME,
-              body: process.env.NOTES,
+              name: `MouseComb ${process.env.DISPLAY_VERSION}${prototype ? " (prototype)" : ""}`,
+              body,
               draft: true,
+              prerelease: prototype,
             });
             core.setOutput("id", data.id);
 
   publish:
-    name: Build and sign (${{ matrix.name }})
+    name: Build (${{ matrix.name }})
     needs: [plan, draft]
     strategy:
       fail-fast: true
@@ -107,36 +164,41 @@ jobs:
         shell: bash
         run: node scripts/version.mjs apply "${{ needs.plan.outputs.display }}"
       # Installed apps verify every update against this public key (FEAT-022).
+      # Without the key (owner setup in PIPELINE.md) the build still ships, with updates off.
       - name: Turn on signed updates
+        id: updater
         shell: bash
         env:
           PUBKEY: ${{ vars.MOUSECOMB_UPDATER_PUBKEY }}
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
+          if [ -z "$PUBKEY" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::warning::No updater key yet (PIPELINE.md one-time setup): this release can't update itself."
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           node -e '
             const fs = require("fs");
             const file = "apps/desktop/src-tauri/tauri.conf.json";
-            if (!process.env.PUBKEY) {
-              console.error("Set the MOUSECOMB_UPDATER_PUBKEY repository variable (PIPELINE.md, one-time setup).");
-              process.exit(1);
-            }
             const conf = JSON.parse(fs.readFileSync(file, "utf8"));
             conf.bundle.createUpdaterArtifacts = true;
             conf.plugins.updater.pubkey = process.env.PUBKEY;
             fs.writeFileSync(file, JSON.stringify(conf, null, 2) + "\n");
           '
+          echo "on=true" >> "$GITHUB_OUTPUT"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.updater.outputs.on == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ steps.updater.outputs.on == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
           MOUSECOMB_DEFAULT_SERVER: ${{ vars.MOUSECOMB_DEFAULT_SERVER }}
-          MOUSECOMB_BUILD: ${{ github.run_number }}
+          MOUSECOMB_BUILD: ${{ needs.plan.outputs.build }}
         with:
           projectPath: apps/desktop
           releaseId: ${{ needs.draft.outputs.id }}
           # latest.json lists both platforms; Windows updates use the per-user
           # NSIS installer, Linux updates the AppImage.
-          includeUpdaterJson: true
+          includeUpdaterJson: ${{ steps.updater.outputs.on == 'true' }}
           updaterJsonPreferNsis: true
 
   release:
