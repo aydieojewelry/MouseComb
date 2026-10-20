@@ -1,0 +1,28 @@
+{
+  "name": "Your App",
+  "shortName": "YourApp",
+  "packageId": "com.yourcompany.yourapp",
+  "tagline": "One line that says what the app does",
+  "colors": {
+    "primary": "#3B5BDB",
+    "onPrimary": "#FFFFFF",
+    "secondary": "#F59F00",
+    "background": "#FFFFFF",
+    "surface": "#F8F9FA",
+    "text": "#212529",
+    "darkBackground": "#121212",
+    "darkSurface": "#1E1E1E",
+    "darkText": "#E9ECEF"
+  },
+  "typography": {
+    "heading": "Inter",
+    "body": "Inter"
+  },
+  "assets": {
+    "logo": "brand/assets/logo.svg",
+    "appIcon": "brand/assets/icon-1024.png",
+    "splash": "brand/assets/splash.png"
+  },
+  "tone": "Friendly, plain-spoken, no jargon",
+  "platforms": ["android"]
+}
