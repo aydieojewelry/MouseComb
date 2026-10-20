@@ -13,6 +13,13 @@ Template:
 
 ---
 
+## B-0010 — 2026-10-20 — Linux as a production target; installers in CI; PR
+- Owner decision: ship for Windows **and Linux** (DEC-024).
+- Done: Linux bundles (AppImage, .deb, .rpm with their library dependencies) next to NSIS and MSI in `tauri.conf.json`; CI job "Installers" builds unsigned test installers on Windows and Ubuntu 22.04 for every pull request and keeps them as run artifacts for 14 days; the release workflow creates one draft release, builds and signs both platforms in parallel into it (one `latest.json`), then publishes it. PIPELINE.md, README and APP_SPEC (targets, FEAT-022, DEC-024) updated.
+- Verified: `tauri build` on Linux made the .deb (18 MB), .rpm (18 MB) and AppImage (92 MB); the release binary started in Xvfb with Settings, the analog HUD and the OmniBar timer working; actionlint clean. Windows installers are built by CI (not buildable in this Linux container).
+- Not on Linux yet (DEC-024): installed-apps list, power commands, Wayland global shortcut.
+- Next: owner setup (PIPELINE.md) → first release → try both installers.
+
 ## B-0009 — 2026-10-19 — The approved design: OmniBar timer, clock faces, simpler Settings
 - Owner approved the design canvas (https://claude.ai/artifact/6TCLQibXwK8SiFGxzhBcJ3) after three rounds of comments: a dial timer inside the OmniBar, cards still to come blurred, finer dial markings, analog/digital clock faces, simpler and more visual Settings.
 - Done:

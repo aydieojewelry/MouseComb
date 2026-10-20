@@ -43,7 +43,7 @@ flowchart LR
 
 ## 3 · Review
 - Open a pull request into `main`. **The PR title carries the version prefix**; it becomes the squash-merge commit that decides the next version (VERSIONING.md).
-- CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs four jobs: Rust (format, lint, tests against a live backend, bindings check), Backend (Go), Frontend (types, tests, build), Windows build.
+- CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs these jobs: Rust (format, lint, tests against a live backend, bindings check), Backend (Go), Frontend (types, tests, build), and Installers for Windows and Linux (unsigned test installers you can download from the run).
 - Red CI: the agent fixes and pushes again. It never skips or disables a test.
 - The owner (see [`.github/CODEOWNERS`](.github/CODEOWNERS)) reviews and approves.
 
@@ -55,7 +55,7 @@ flowchart LR
 - [`.github/workflows/release.yml`](.github/workflows/release.yml) runs every Tuesday and on demand:
   1. `scripts/version.mjs next` reads commits since the last tag and picks the next `w.x.y.z+b`. No `feat`/`patch`/`fix`/`uplift` commits means no release.
   2. **Waits for the owner to approve** the `release` environment.
-  3. Stamps the version, builds the Windows installer on a Windows runner, signs the update files, tags `vw.x.y.z+b`, and publishes the GitHub Release with grouped notes.
+  3. Creates a draft release, builds and signs the Windows installers (NSIS, MSI) on a Windows runner and the Linux packages (AppImage, .deb, .rpm) on Ubuntu 22.04 in parallel, tags `vw.x.y.z+b`, and publishes the release with grouped notes and one `latest.json` for both platforms.
 - Hotfix: merge a `fix:` PR, then run the workflow by hand.
 - After a release, an agent updates `CHANGELOG.md` from the release notes (`docs:` commit).
 
@@ -77,7 +77,7 @@ A separate, optional subproject. The app works fully without it.
 Privacy rules (FEAT-024, DEC-018) apply to everything here: opt-in only, counts only, no typed text, clipboard, snippets, window titles or file names, no per-user rows in reports.
 
 ## One-time setup on GitHub (owner)
-1. **Branch protection on `main`:** require a pull request, 1 approval from code owners, and these checks to pass: `Rust (lint + tests with live backend)`, `Backend (Go)`, `Frontend (types, tests, build)`, `Windows build`. Block force pushes. Allow squash merge only.
+1. **Branch protection on `main`:** require a pull request, 1 approval from code owners, and these checks to pass: `Rust (lint + tests with live backend)`, `Backend (Go)`, `Frontend (types, tests, build)`, `Installers (Windows)`, `Installers (Linux)`. Block force pushes. Allow squash merge only.
 2. **Environment `release`:** add yourself as a required reviewer.
 3. **Updater signing key** (once, keep it safe; losing it means installed apps can't update):
    - run `pnpm --filter @mousecomb/desktop tauri signer generate -w ~/.tauri/mousecomb.key`;

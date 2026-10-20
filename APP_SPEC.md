@@ -14,10 +14,11 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: pre-production          # first installable release at the end of M1 (§11)
-build: B-0009                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
+build: B-0010                  # manual counter until the first release; then w.x.y.z+b (VERSIONING.md)
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
+  linux:   Linux x64 (AppImage, .deb, .rpm; X11 for the global shortcut) — second production target (DEC-024)
   mobile:  Android + iOS companion app (see §12)
   later:   macOS desktop (needs its own input adapter; everything else is shared)
 ```
@@ -461,7 +462,7 @@ Restart-Service Audiosrv
 ---
 
 ### FEAT-022 — Installer and auto-updates (M1)
-- NSIS installer per user (no admin needed). Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases of this public repo (DEC-019): `https://github.com/aydieojewelry/MouseComb/releases/latest/download/latest.json`. `latest.json` prefers the NSIS installer.
+- Windows: NSIS installer per user (no admin needed) and MSI. Linux: AppImage (self-updating), .deb and .rpm, built on Ubuntu 22.04 so the AppImage runs on older distros. Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases of this public repo (DEC-019): `https://github.com/aydieojewelry/MouseComb/releases/latest/download/latest.json`. `latest.json` lists both platforms and prefers the NSIS installer on Windows. CI builds unsigned test installers for both platforms on every pull request.
 - The app checks 20 s after start and then once every 24 h of wall-clock time (so a PC that slept still checks), downloads in the background, says "Update ready" (notification, tray, About), and installs when the user picks **Restart to update** or quits from the tray. On Windows the installer closes the app, updates it and starts it again.
 - Updates are on only in release builds: the release workflow writes the updater public key (repository variable `MOUSECOMB_UPDATER_PUBKEY`) into `tauri.conf.json` and turns on `createUpdaterArtifacts`. Other builds say "Updates are off in this build". Releases go out weekly (VERSIONING.md).
 - A bad update never strands anyone: the previous installer stays downloadable, and the app keeps working offline.
@@ -627,4 +628,5 @@ Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**. 
 | DEC-021 | Insights add-on language | Python (pandas + scikit-learn) as a scheduled GitHub Actions job; free, no server. Revisit if it needs to run on the backend VM |
 | DEC-022 | Who approves | The owner approves every PR (CODEOWNERS) and every release (`release` environment). Agents never approve |
 | DEC-023 | How the OmniBar finds apps | `Get-StartApps` in PowerShell (what Start shows, Store apps included) over scanning `.lnk` files; ~1 s, so cached |
+| DEC-024 | Linux desktop | **A production target from B-0010 (owner's choice).** Same app and installers from the same release; OmniBar, clock, Pomodoro, sync and updates work. Not yet on Linux: the installed-apps list and power commands (Windows-only in `mc-win`), the global shortcut under Wayland (works on X11), and the M3 input engine (Linux needs its own input adapter) |
 | DEC-020 | Code signing | Tauri update files are always signed (free). Windows code signing (SmartScreen trust) before 1.0; unsigned installers show a warning until then |
