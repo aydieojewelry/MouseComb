@@ -1,6 +1,45 @@
 # Changelog
 
-What changed for people using MouseComb, per release. Versions are `x.y.z+b` ([VERSIONING.md](VERSIONING.md)); `0.y.z` releases are prototypes. Adding a new version section here and pushing it publishes that release.
+What changed for people using MouseComb, per release. Versions are `x.y.z+b` ([CR/CR.md](CR/CR.md#versioning)); `0.y.z` releases are prototypes.
+
+**How this file works.** Under `## Next` the owner writes what they want next, as bullets. An agent builds it and files each bullet under a sub-heading (Features, Functionality, Hotkeys, Core ideas, Changes, Fixes, Known limits); `node scripts/version.mjs release` then turns `## Next` into the numbered section and picks the version. A numbered section reaching `main` publishes that release. The What's new page in the app shows these sections.
+
+## Next
+
+<!-- Owner: write what you want next as bullets here, under any sub-heading (Features, Functionality, Hotkeys, Core ideas, Changes, Fixes). Agent: build it, then keep these sub-headings and run `node scripts/version.mjs release`. -->
+
+## 0.1.0+2 — 2026-10-21 — hotkeys, gestures, snippet typing, bangs
+
+Everything since 0.0.0+1.
+
+### Features
+- **Hotkeys you assign:** Settings → Bindings → *New binding*. Press the keys, then pick what they do: any OmniBar command, a snippet, volume, media keys, switch desktop, send keys.
+- **Mouse gestures** (Windows): hold `CapsLock` and drag left, right, up or down to run an action. Right-button drag is available too, off by default.
+- **Snippet typing:** have a snippet typed into any app without touching your clipboard, from a binding or from the OmniBar (*Type “…”*).
+- **Bangs in the OmniBar:** `!yt cats` or `cats !yt` searches that site. About 60 are built in, you can add your own in Settings → General → Bangs, and any other bang goes to DuckDuckGo.
+- **What's new page:** what changed in each version, in the sidebar. It opens by itself once after an update.
+
+### Functionality
+- New things a binding can do: send a key combination, volume up, down and mute, play/pause, next and previous track, next and previous desktop, turn hotkeys on or off.
+- Updates: installed copies read their update feed from a fixed place, so they find new versions even though every prototype is a pre-release.
+- Settings → About points to What's new instead of a fixed list.
+
+### Hotkeys
+- **`Ctrl+Alt+Pause`** turns hotkeys, Hyper-Key and gestures off at once, and stops anything being typed.
+- **CapsLock Hyper-Key:** hold `CapsLock` and press a key to run its binding. Holding `CapsLock` alone for 1.5 seconds toggles real CapsLock.
+
+### Core ideas
+- Everything is an **action**, and a **binding** connects a trigger (hotkey, CapsLock key, gesture) to one. Bindings sync across your PCs.
+- Hotkeys, Hyper-Key and gestures start **off**, behind one switch in Settings → Bindings, and the panic key always works.
+- The input engine never leaves a key held down, ignores what MouseComb types itself, and does nothing slow inside the keyboard and mouse hooks.
+- Version numbers now come from this file, and releases are built only from `main`.
+
+### Known limits
+- Hotkeys, Hyper-Key and gestures haven't been run on a real Windows PC yet: please try them and report back. Start with the switch in Settings → Bindings.
+- A hotkey limited to certain programs still takes the key in every program.
+- Linux: hotkeys work on X11 only; Hyper-Key, gestures and typing snippets are Windows-only for now (Linux copies the snippet and says to press `Ctrl+V`).
+- Updating itself needs the one-time signing setup; until then, install each new version over the old one.
+- The installers aren't code-signed yet, so Windows SmartScreen may warn: **More info → Run anyway**.
 
 ## 0.0.0+1 — 2026-10-20 — first build
 

@@ -17,3 +17,7 @@ pb_data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Obsidian: only app.json is shared
+.obsidian/*
+!.obsidian/app.json

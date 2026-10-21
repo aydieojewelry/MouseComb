@@ -1,5 +1,5 @@
 # Runs on every pull request and on main. A PR can merge only when all jobs pass
-# (branch protection, PIPELINE.md §3).
+# (branch protection, CR/PIPELINE.md §3).
 name: CI
 
 on:

@@ -9,5 +9,8 @@
     "bindings": "cargo run -p mousecomb-desktop --bin export-bindings",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test && node --test scripts/*.test.mjs"
+  },
+  "devDependencies": {
+    "@toon-format/toon": "4.1.1"
   }
 }

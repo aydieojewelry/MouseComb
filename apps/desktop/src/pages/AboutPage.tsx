@@ -37,7 +37,7 @@ function UpdatesSection() {
   return (
     <Section
       title="Updates"
-      description="New versions come out weekly. They download in the background and install on the next restart."
+      description="New versions download in the background and install on the next restart."
       aside={
         status.state === "ready" ? (
           <Button variant="primary" busy={run.isPending} onClick={() => act("mc.update.install")}>

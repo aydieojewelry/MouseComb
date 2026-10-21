@@ -1,7 +1,7 @@
 # MouseComb — App Spec (Single Source of Truth)
 
 > **Rules for humans and AI agents**
-> 1. Read this file and the latest entry in `DEVLOG.md` before changing anything.
+> 1. Start at [`CR.md`](CR.md) (state, commands, rules). Read the part of this file you touch and the latest entry in [`DEVLOG.md`](DEVLOG.md) before changing anything.
 > 2. Cite IDs (`FEAT-xxx`, `DEC-xxx`) when discussing or changing code.
 > 3. If a change affects behavior, UI, data, config or status, update this file in the same change.
 > 4. Log each work session in `DEVLOG.md`, not here.
@@ -14,7 +14,7 @@
 name: MouseComb
 tagline: "Bind any key, gesture or screen edge to any Windows command, setting or workflow. Add more with free extensions. Your setup follows you to every device."
 stage: prototype               # numbered builds start at 0.0.0+1 (pre-release); production is 1.0.0 (M9)
-version: 0.0.0+1               # x.y.z+b (VERSIONING.md)
+version: 0.1.0+2               # x.y.z+b (CR.md, Versioning); bump at the end of every session
 product: Free edition + paid Pro edition (see §9)
 targets:
   desktop: Windows 10/11 (x64, later ARM64) — first desktop target
@@ -38,7 +38,7 @@ targets:
 | Forms | **TanStack Form** + Zod 4 | Settings and extension-settings forms, generated from schemas |
 | Timing | **TanStack Pacer** | Debounced saves, throttled live previews |
 | Rust ↔ TS types | `tauri-specta` | Commands and events are typed end to end, no hand-written glue |
-| Desktop plugins | global-shortcut, updater (signed), notification, clipboard-manager, autostart, single-instance, opener | OmniBar hotkey, weekly updates, Pomodoro toasts, copy results; all used from Rust, not from the webviews |
+| Desktop plugins | global-shortcut, updater (signed), notification, clipboard-manager, autostart, single-instance, opener | OmniBar hotkey, updates, Pomodoro toasts, copy results; all used from Rust, not from the webviews |
 | Local data | SQLite (`rusqlite`, bundled) in `mc-store` | Same database file format on every device; dirty flags for sync |
 | Backend | **PocketBase v0.40** embedded as a Go framework (`services/pocketbase`) (DEC-010) | Free, open source, one small binary with auth, REST and realtime; you own the data |
 | Sync | `mc-sync`: `Backend` trait + PocketBase adapter, per-record last-writer-wins | Same data on every PC and the phone; another backend (e.g. Firebase) plugs in behind the trait |
@@ -122,7 +122,7 @@ graph TD
 - **Extensions are never on the input path.** Running the matched action, including extension code, happens afterwards, asynchronously.
 - The engine never leaves a key or button logically "held". Every suppressed down-event is either replayed or matched by a synthetic up-event, including on timeout, focus change and shutdown.
 - Events we inject ourselves are tagged (`dwExtraInfo`) and ignored by our own hooks, so they never loop.
-- **Global pause:** `CapsLock + Pause` (and a tray toggle) disables every trigger at once.
+- **Off by default, panic key (DEC-025):** hotkey bindings, the Hyper-Key and gestures run only while the device-only setting `input.enabled` is on (Settings → Bindings). `Ctrl+Alt+Pause` is a plain registered shortcut, so it works even if a hook misbehaves: it turns `input.enabled` off, stops any snippet being typed and releases everything held. A tray toggle is planned.
 - **Per-app exclusions:** a process list where gestures, edges and chords are off. Fullscreen-exclusive apps (games) are auto-excluded by default.
 
 ### Repository layout (monorepo: pnpm workspaces + Cargo workspace)
@@ -233,17 +233,17 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | ID | Feature | Milestone | Status |
 |---|---|---|---|
 | FEAT-000 | App shell: tray, autostart, single instance, store, windows pre-created | M0 | IN_PROGRESS (all but extra windows) |
-| FEAT-008 | CapsLock Hyper-Key | M1 | PLANNED |
-| FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 → M3 | IN_PROGRESS (runner + the 23 actions the OmniBar needs, B-0007/B-0009; full catalog M3) |
-| FEAT-014 | Trigger & binding system (any trigger → any action, per-app conditions) | M1 | PLANNED |
-| FEAT-004 | OmniBar: command palette (opens Settings, runs quick commands, later every action) | M1 | TESTING (built B-0007, verified on Linux; needs a Windows run) |
+| FEAT-008 | CapsLock Hyper-Key | M1 | TESTING (built in 0.1.0+2, Windows hooks; logic unit-tested, not yet run on real Windows) |
+| FEAT-013 | Action registry + native Windows action catalog + setting actions | M1 → M3 | IN_PROGRESS (runner + the actions the OmniBar and bindings need: send keys, volume, media, desktops, snippet typing, input toggle; full catalog M3) |
+| FEAT-014 | Trigger & binding system (any trigger → any action, per-app conditions) | M1 | TESTING (0.1.0+2: hotkey, Hyper and gesture triggers, `only_in`/`not_in`, Settings → Bindings) |
+| FEAT-004 | OmniBar: command palette (opens Settings, runs quick commands, bangs, later every action) | M1 | TESTING (built B-0007, bangs 0.1.0+2, verified on Linux; needs a Windows run) |
 | FEAT-009 | Help modals, generated from the live bindings | M2 | PLANNED |
 | FEAT-010 | Settings window: bindings editor, recorder, conflict check, visual previews | M2 → M5 | IN_PROGRESS (shell; General: shortcut, search engine, clock faces with preview and fade presets, Basics; Pomodoro: dial, steppers; Snippets, Account, About with updates. Visual redesign B-0009) |
 | FEAT-015 | Workflows | M3 | PLANNED |
 | FEAT-016 | Extension host + SDK + permissions | M4 | PLANNED |
 | FEAT-018 | Script commands | M4 | PLANNED |
 | FEAT-001 | HUD with Clock widget, proximity fade | M1 | TESTING (built B-0007; Ctrl-click waits for the M3 input engine) |
-| FEAT-006 | Mouse gesture trigger (safe triggers only) | M5 | PLANNED |
+| FEAT-006 | Mouse gesture trigger (safe triggers only) | M5 | TESTING (built early in 0.1.0+2, Windows hooks; not yet run on real Windows) |
 | FEAT-007 | Hot edge & corner trigger | M5 | PLANNED |
 | FEAT-011 | LMB-hold + scroll chord trigger (opt-in) | M5 | PLANNED |
 | FEAT-017 | Extension library (free, in-app store) | M6 | PLANNED |
@@ -251,14 +251,14 @@ Status legend: `PLANNED` · `IN_PROGRESS` · `TESTING` · `DONE` · `DROPPED`.
 | FEAT-020 | Data store, account and sync (E2E encryption later) | M0 | IN_PROGRESS (store, auth, sync done; realtime, E2E, export pending) |
 | FEAT-012 | Mobile app | M10 | PLANNED |
 | FEAT-021 | Sign-in page on first launch | M1 | TESTING (built B-0007, with password reset) |
-| FEAT-022 | Installer + weekly auto-updates | M1 | IN_PROGRESS (updater built B-0007; first signed release waits for the owner's setup) |
+| FEAT-022 | Installer + auto-updates + What's New page | M1 | IN_PROGRESS (updater built B-0007, update feed on the fixed `updates` release and What's New in 0.1.0+2; first signed release waits for the owner's setup) |
 | FEAT-023 | Quick commands: calculator, app launcher, web search, copy a snippet | M1 | TESTING (built B-0007; app list and power actions need a Windows run) |
 | FEAT-002 | Pomodoro (core in M1, extension in M5) | M1 | TESTING (built B-0007, full phase verified on Linux) |
 | FEAT-024 | Usage telemetry, collected by the app | M2 | PLANNED (consent switch built B-0007, on by default, DEC-018) |
 | FEAT-026 | Insights add-on (`services/insights`): health, trends, basic ML, weekly report | M2 | PLANNED |
 | FEAT-027 | Staged rollout: updates reach 10 % → 50 % → 100 %, paused on worse health | M2 | PLANNED |
-| FEAT-028 | Delivery pipeline: CI, owner-approved merges, gated weekly release (`PIPELINE.md`) | B-0006 (built) → M1 (switched on) | IN_PROGRESS |
-| FEAT-025 | Release automation: version from commits, release notes, tags (`scripts/version.mjs`) | B-0006 | IN_PROGRESS (script + workflow built; enabled at M1) |
+| FEAT-028 | Delivery pipeline: CI, owner-approved merges, gated release ([`PIPELINE.md`](PIPELINE.md)) | B-0006 (built) → M1 (switched on) | IN_PROGRESS |
+| FEAT-025 | Release automation: version and notes from `CHANGELOG.md` `## Next`, hotfix without a branch, tags (`scripts/version.mjs`, DEC-026) | B-0006 → 0.1.0+2 | DONE (used for 0.0.0+1; changelog-driven from 0.1.0+2) |
 | — | Window management (`Caps+P/M/G` and all window actions) | — | DROPPED (DEC-007) |
 | — | Middle-button drag gestures | — | DROPPED (conflicts with autoscroll and panning) |
 
@@ -294,6 +294,8 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 | Clipboard | get / set text | |
 | Notify | toast, HUD flash | |
 
+**Built so far (ids in `mc_core::actions`):** `core.os.input.send` (a key combo, used by the volume, media and desktop actions), `core.os.audio.{volume_up,volume_down,mute}`, `core.os.media.{play_pause,next,prev}`, `core.os.desktops.{next,prev}` (`Ctrl+Win+→/←`), `ext.mc.snippets.type`, `mc.input.toggle`, plus the earlier OmniBar, Pomodoro, power, clipboard and open-URL actions.
+
 **Setting actions (`setting.*`):** every MouseComb and extension setting automatically gets `setting.toggle`, `setting.set`, `setting.cycle`.
 
 **MouseComb actions (`mc.*`):** open OmniBar, settings, help, pause/resume, reload, show bindings for the current app, sync now.
@@ -304,10 +306,12 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 - **Conditions per binding:** `only in` / `not in` a list of apps (by process name).
 - **Binding editor:** press-to-record, a plain-English summary, live conflict warnings (with another binding, with known Windows or app shortcuts), import / export.
 - Reserved, can't be rebound: `Ctrl+Alt+Del`, `Win+L`.
+- **Built (0.1.0+2):** items of kind `binding` (synced, no migration): `{title, trigger, action, with, only_in, not_in, enabled}`. Trigger text: `hotkey:Ctrl+Alt+P`, `hyper:K`, `gesture:caps:left` (`mc_core::bindings::Trigger`). The resolver reads an in-memory snapshot and an app-specific binding beats a general one; disabled or invalid ones are skipped and reported in `InputStatus.issues`. Hotkeys register through the global-shortcut plugin (one handler each), so they work on Linux/X11 too; Hyper and gesture triggers need the Windows hooks. Known limit: a hotkey with `only_in` still takes the key in other apps (the plugin swallows it); resolving in the hook is planned. Settings → Bindings records the shortcut, picks the action (snippets included), warns about duplicate triggers, and holds the master switch.
 
 ### FEAT-008 — CapsLock Hyper-Key
 - `CapsLock` is suppressed. While it is held, the next key goes to the bindings, not to the app.
 - Tap alone: nothing. Hold alone ≥ `hyper.capslock_toggle_ms` (default 1500): toggle real CapsLock, with a toast.
+- **Built (0.1.0+2):** `mc_core::input::Engine` (pure, runs inside the hook callback) with a `Ledger` that never suppresses an up whose down passed; the Windows side is `mc-win::hooks` on its own thread. Off until `input.enabled` and `input.hyper` are on (DEC-025).
 
 ### FEAT-004 — OmniBar (`Alt+Space` in M1, `Caps+Space` from M3)
 - One place for everything: actions, workflows, extension commands, installed apps (Start Menu), URLs, calculator, web search. Built on Ark Combobox (always open) + TanStack Virtual, as `CommandPalette` in `packages/ui`.
@@ -318,7 +322,9 @@ An action has an `id`, a title, typed parameters, and an optional "needs confirm
 - Hover only highlights after the mouse moves, so a window opening under a resting mouse keeps the top result.
 - `Esc` clears the text, then closes. Focus returns to the previous window. After a command runs, the OmniBar closes itself (`omnibar_hide`) and the HUD flashes a short confirmation ("Copied").
 - **Views:** `mc.omnibar.open` with `view` opens the OmniBar on a view instead of the list (allow-list `OMNIBAR_VIEWS`); "Pomodoro timer" in the list does the same in place. The **Pomodoro timer view** (design: "OmniBar · Pomodoro timer") has a 60-minute dial with the time left (a tick per minute, a dot per half minute, quarter numbers, an inner arc to the exact time) and a raised start/pause button in the middle, the countdown, Now / Next / After N cards (cards further ahead are blurred: not started yet), and +5 min, Skip, Reset. Keys: `Space` start/pause, `S` skip, `R` reset, `+` add 5 min, `Esc` back to the list. Its buttons keep the OmniBar open.
-- Later: each result shows its current hotkey; extension commands open views inside it.
+- **Bangs (0.1.0+2):** `!yt cats` or `cats !yt` searches that site; about 60 are built in (`omnibar/bangs.ts`), your own are items of kind `bang` (trigger, name, address with `{q}`; Settings → General → Bangs) and win over the built-in ones; any other bang goes to DuckDuckGo. A bang result comes first, ahead of the calculator.
+- **Snippet typing:** a snippet result offers *Type “title”* (`ext.mc.snippets.type`): the OmniBar hides, then Windows types the text with `SendInput` (Unicode, no clipboard, stops on the panic key); on Linux it copies and says to press `Ctrl+V`.
+- Later: each result shows its current hotkey; extension commands open views inside it; a converter ([`BACKLOG.md`](BACKLOG.md)).
 
 ### FEAT-023 — Quick commands (M1)
 | Command | How |
@@ -440,6 +446,7 @@ Restart-Service Audiosrv
 | `Ctrl+Shift` + drag | **not offered** | Explorer creates shortcuts, editors extend selections, design tools constrain. |
 
 - 4 directions with a dominant-axis ratio (diagonals are ignored rather than guessed), Esc or returning to the start cancels, optional trail.
+- **Built (0.1.0+2):** `GestureTracker` in `mc_core::input` (threshold 18 px, axis ratio 2.0, 1500 ms, out-and-back cancels, a click replayed when nothing moved). Device-only setting `input.gestures` = `off` (default), `caps` or `rmb`. Windows only; the trail is not built.
 - Default bindings: Left = Back, Right = Forward, Up = next app, Down = previous app. Defaults: `threshold_px` 18, `axis_ratio` 2.0, `max_duration_ms` 1500.
 
 ### FEAT-007 — Hot edge & corner trigger
@@ -462,9 +469,10 @@ Restart-Service Audiosrv
 ---
 
 ### FEAT-022 — Installer and auto-updates (M1)
-- Windows: NSIS installer per user (no admin needed) and MSI. Linux: AppImage (self-updating), .deb and .rpm, built on Ubuntu 22.04 so the AppImage runs on older distros. Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases of this public repo (DEC-019): `https://github.com/aydieojewelry/MouseComb/releases/latest/download/latest.json`. `latest.json` lists both platforms and prefers the NSIS installer on Windows. CI builds unsigned test installers for both platforms on every pull request.
+- Windows: NSIS installer per user (no admin needed) and MSI. Linux: AppImage (self-updating), .deb and .rpm, built on Ubuntu 22.04 so the AppImage runs on older distros. Tauri updater plugin with signed update files; `latest.json` + installers published on GitHub Releases of this public repo (DEC-019): `https://github.com/aydieojewelry/MouseComb/releases/download/updates/latest.json` (GitHub's "latest" skips pre-releases, and every `0.y.z` is one, so the release workflow copies `latest.json` to the fixed release tag `updates`). `latest.json` lists both platforms and prefers the NSIS installer on Windows. CI builds unsigned test installers for both platforms on every pull request.
 - The app checks 20 s after start and then once every 24 h of wall-clock time (so a PC that slept still checks), downloads in the background, says "Update ready" (notification, tray, About), and installs when the user picks **Restart to update** or quits from the tray. On Windows the installer closes the app, updates it and starts it again.
-- Updates are on only in release builds: the release workflow writes the updater public key (repository variable `MOUSECOMB_UPDATER_PUBKEY`) into `tauri.conf.json` and turns on `createUpdaterArtifacts`. Other builds say "Updates are off in this build". Releases go out weekly (VERSIONING.md).
+- Updates are on only in release builds: the release workflow writes the updater public key (repository variable `MOUSECOMB_UPDATER_PUBKEY`) into `tauri.conf.json` and turns on `createUpdaterArtifacts`. Other builds say "Updates are off in this build". Releases go out when the owner approves one (CR.md, Versioning).
+- **What's New:** Settings → What's new reads `CHANGELOG.md` at build time (`parseChangelog` in `packages/data`). After an update the main window opens on it once, 2.5 s after start (`whatsnew.rs`, device-only `whatsnew.seen`); not on a new install (Welcome is showing) and not on a hidden start at login.
 - A bad update never strands anyone: the previous installer stays downloadable, and the app keeps working offline.
 
 ### FEAT-024 — Usage telemetry (M2)
@@ -472,7 +480,7 @@ Restart-Service Audiosrv
 - **Collected:** a random install id (not the account), app version, Windows version, and counts of feature use: OmniBar opened, which command ran (by id), Pomodoro started/finished, sync errors by code, crash signatures, start-up time.
 - **Never collected:** keys pressed, anything typed, OmniBar search text, clipboard, snippet contents, window titles, file names, IP-based location.
 - **Path:** events batch on the PC and upload once a day to a create-only `telemetry` collection in PocketBase (users can't read it back).
-- **Use:** the Insights add-on (FEAT-026, a separate optional subproject in `services/insights`) turns the raw events into release health, feature trends, anomaly alerts (rolling baseline) and usage groups (k-means on feature counts). It publishes `reports/usage/YYYY-Www.md` (aggregates only) by pull request and a health signal that can pause a staged rollout (FEAT-027). AI coding agents read the report with the issue list to propose the next build. Version numbers come from what changed (VERSIONING.md), not from the report.
+- **Use:** the Insights add-on (FEAT-026, a separate optional subproject in `services/insights`) turns the raw events into release health, feature trends, anomaly alerts (rolling baseline) and usage groups (k-means on feature counts). It publishes `reports/usage/YYYY-Www.md` (aggregates only) by pull request and a health signal that can pause a staged rollout (FEAT-027). AI coding agents read the report with the issue list to propose the next build. Version numbers come from `CHANGELOG.md` (CR.md, Versioning), not from the report.
 
 ## 8. Safety & privacy model
 
@@ -582,6 +590,8 @@ Stored as SQLite tables in `mc-store`. JSON export uses the same shapes.
 | M9 | Hardening → **production 1.0.0.0** | Code-signed installer, crash reports, store listing |
 | M10 | Mobile app | Pair by QR, run a PC workflow from the phone |
 
+Built early, in 0.1.0+2: hotkey bindings, Hyper-Key, gestures and snippet typing (parts of M3 and M6), a first Bindings page (M4), bangs and What's New. M3's exit check (no stuck keys in a 30-minute session on real Windows) is still open.
+
 ## 12. Mobile app (FEAT-012)
 
 Android and iOS don't let apps hook global input or control other apps, so triggers and native Windows actions stay on the desktop. The mobile app shares **data and UI code**, not input features.
@@ -595,11 +605,12 @@ Android and iOS don't let apps hook global input or control other apps, so trigg
 
 ## 13. Versioning policy
 
-Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**. How changes get from a branch to users (CI, approvals, releases, rollout): **[`PIPELINE.md`](PIPELINE.md)**.
+Full rules, the git graph and the release steps: **[`CR.md`](CR.md#versioning)**. How changes get from a branch to users (CI, approvals, releases, rollout): **[`PIPELINE.md`](PIPELINE.md)**.
 
-- Format **`x.y.z+b`**: main feature . minor change . fix/patch + build (grows by one every release, hotfix rebuilds included). `0.y.z` releases are prototypes (GitHub pre-releases).
-- Releases: a pushed tag `vX.Y.Z+B` (owner's choice, notes from `CHANGELOG.md`) or the weekly train from `main` (hotfixes any day); GitHub Releases with Windows and Linux installers; auto-updates once the updater key is set up. Installers and the updater use `x.y.z`; the build number is compiled in as `MOUSECOMB_BUILD`.
-- Trunk-based branching: short-lived branches merged to `main` by pull request; worktrees for experiments.
+- Format **`x.y.z+b`**: main feature . minor change . fix + build. `b` grows by one every release; **a hotfix is the same `x.y.z` with `b`+1**, released from `main` with no branch. `0.y.z` releases are prototypes (GitHub pre-releases); while `x` is 0 every size moves one place down. `1.0.0` is the owner's call.
+- **`CHANGELOG.md` decides (DEC-026):** the owner writes intent under `## Next`; the agent builds it and files it under Features, Functionality, Hotkeys, Core ideas, Changes, Fixes; `node scripts/version.mjs release` names the section from the biggest sub-heading. Commit prefixes are labels only.
+- Releases come only from `main`: a push that adds a numbered section to `CHANGELOG.md`, a tag `vX.Y.Z+B`, or *Run workflow* with a hotfix text. GitHub Releases with Windows and Linux installers; auto-updates once the updater key is set up. Installers and the updater use `x.y.z`; the build number is compiled in as `MOUSECOMB_BUILD`.
+- Trunk-based branching: short-lived branches merged to `main` by pull request. `v0.1.0+11` (the first test prototype) is retired and ignored by the script.
 
 ## 14. Open decisions
 
@@ -628,4 +639,7 @@ Full rules, examples and branch diagrams: **[`VERSIONING.md`](VERSIONING.md)**. 
 | DEC-022 | Who approves | The owner approves every PR (CODEOWNERS) and every release (`release` environment). Agents never approve |
 | DEC-023 | How the OmniBar finds apps | `Get-StartApps` in PowerShell (what Start shows, Store apps included) over scanning `.lnk` files; ~1 s, so cached |
 | DEC-024 | Linux desktop | **A production target from B-0010 (owner's choice).** Same app and installers from the same release; OmniBar, clock, Pomodoro, sync and updates work. Not yet on Linux: the installed-apps list and power commands (Windows-only in `mc-win`), the global shortcut under Wayland (works on X11), and the M3 input engine (Linux needs its own input adapter) |
+| DEC-025 | Input hooks | **Hotkeys, Hyper-Key and gestures ship off by default (owner's choice, 0.1.0+2):** one device-only switch `input.enabled` in Settings → Bindings and a panic key `Ctrl+Alt+Pause` that always works |
+| DEC-026 | How versions are chosen | **`CHANGELOG.md` `## Next` drives them (owner's choice, 0.1.0+2):** sub-headings give the size, releases only from `main`, a hotfix is `b`+1 with no branch, the weekly train and commit-prefix bumps are gone |
+| DEC-027 | Hand-off | **The `CR` folder is the entry point (owner's choice, 0.1.0+2):** `CR/CR.md` (human summary, then TOON for agents) and `CR/META-RULES.md` (Obsidian-friendly); the spec, log and pipeline moved into it; commands `>resume`, `>status`, `>next`, `>plan`, `>build`, `>release`, `>hotfix`, `>tidy`, `>docs` with `--flags` |
 | DEC-020 | Code signing | Tauri update files are always signed (free). Windows code signing (SmartScreen trust) before 1.0; unsigned installers show a warning until then |

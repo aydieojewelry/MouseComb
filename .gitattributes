@@ -1,0 +1,2 @@
+# Windows scripts keep their CRLF line endings everywhere (zip downloads included).
+*.bat -text diff

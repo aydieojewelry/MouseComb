@@ -1,4 +1,4 @@
-<!-- Title: start with the version prefix, e.g. "feat: OmniBar calculator" (VERSIONING.md). -->
+<!-- Title: start with a label, e.g. "feat: OmniBar calculator" (CR/CR.md, Versioning). -->
 
 ## What changes
 <!-- One or two sentences, from the user's side. -->
@@ -11,6 +11,8 @@
 - [ ] `pnpm -r typecheck`, `pnpm -r test`, `node --test "scripts/*.test.mjs"`, desktop build
 - [ ] Bindings regenerated if a command or event changed
 - [ ] UI changes looked at (screenshot below)
-- [ ] `APP_SPEC.md`, `DEVLOG.md`, README Documents table updated where needed
+- [ ] `CR/APP_SPEC.md`, `CR/DEVLOG.md`, `CR/CR.md`, README Documents table updated where needed
+- [ ] User-facing change filed under `## Next` in `CHANGELOG.md`
+- [ ] `node scripts/docs-check.mjs` passes
 
 ## Screenshots

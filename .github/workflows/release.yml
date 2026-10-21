@@ -1,9 +1,9 @@
-# Releases (VERSIONING.md, PIPELINE.md §5): versions are x.y.z+b.
-# - A push that adds a version section to CHANGELOG.md releases that version
-#   (prototypes 0.y.z from any branch, 1.0.0 and later only from main).
+# Releases (CR/CR.md "Versioning"): versions are x.y.z+b, always from `main`.
+# - A push to main that adds a version section to CHANGELOG.md releases that version.
 # - Pushing a tag `vX.Y.Z+B` releases exactly that version.
-# - The weekly train (Tuesdays, or "Run workflow") picks the next version from
-#   the commits since the last tag; it stays off until RELEASES_ENABLED is "true".
+# - Run workflow with "hotfix" filled in rebuilds main as the same x.y.z with the
+#   build number + 1 (no branch, no CHANGELOG change). Run on main with it empty to
+#   retry a release that failed.
 # Versions 0.y.z are published as prototypes (pre-releases).
 # Publishing waits for a human approval on the "release" environment when it has reviewers.
 name: Release
@@ -11,11 +11,14 @@ name: Release
 on:
   push:
     tags: ["v*"]
-    branches: ["**"]
+    branches: [main]
     paths: [CHANGELOG.md]
-  schedule:
-    - cron: "17 6 * * 2" # Tuesdays 06:17 UTC
   workflow_dispatch:
+    inputs:
+      hotfix:
+        description: "Hotfix: what it fixes (rebuilds main with the build number + 1). Leave empty to retry the newest CHANGELOG version."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -27,7 +30,6 @@ concurrency:
 jobs:
   plan:
     name: Work out the version
-    if: github.event_name == 'push' || vars.RELEASES_ENABLED == 'true'
     runs-on: ubuntu-24.04
     outputs:
       release: ${{ steps.next.outputs.release }}
@@ -46,7 +48,8 @@ jobs:
       - id: next
         env:
           PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
-          PUSHED_BRANCH: ${{ github.event_name == 'push' && github.ref_type == 'branch' && github.ref_name || '' }}
+          PUSHED_BRANCH: ${{ github.ref_type == 'branch' && github.ref_name || '' }}
+          HOTFIX: ${{ github.event_name == 'workflow_dispatch' && inputs.hotfix || '' }}
         run: |
           node scripts/version.mjs plan > plan.json
           cat plan.json
@@ -93,6 +96,11 @@ jobs:
               "",
               "The installers aren't code-signed yet, so Windows SmartScreen may warn: choose **More info → Run anyway**.",
             ].filter((line, i) => line !== "" || i > 0).join("\n");
+            // A failed earlier run leaves a draft behind; replace it.
+            const drafts = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            for (const d of drafts.filter((r) => r.draft && r.tag_name === process.env.TAG)) {
+              await github.rest.repos.deleteRelease({ ...context.repo, release_id: d.id });
+            }
             const { data } = await github.rest.repos.createRelease({
               ...context.repo,
               tag_name: process.env.TAG,
@@ -138,7 +146,7 @@ jobs:
         shell: bash
         run: node scripts/version.mjs apply "${{ needs.plan.outputs.display }}"
       # Installed apps verify every update against this public key (FEAT-022).
-      # Without the key (owner setup in PIPELINE.md) the build still ships, with updates off.
+      # Without the key (owner setup in CR/PIPELINE.md) the build still ships, with updates off.
       - name: Turn on signed updates
         id: updater
         shell: bash
@@ -147,7 +155,7 @@ jobs:
           HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
           if [ -z "$PUBKEY" ] || [ "$HAS_KEY" != "true" ]; then
-            echo "::warning::No updater key yet (PIPELINE.md one-time setup): this release can't update itself."
+            echo "::warning::No updater key yet (CR/PIPELINE.md one-time setup): this release can't update itself."
             echo "on=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

@@ -1,70 +1,55 @@
 # MouseComb
 
-A Windows companion that lets you bind **any key, gesture or screen edge** to **any Windows command, setting or workflow**, then add more with **free extensions**. Your setup syncs to your other PCs and to the MouseComb phone app.
+A tray app for **Windows and Linux**: bind any **hotkey, CapsLock key or mouse gesture** to any action, type **snippets** anywhere, run a **Pomodoro**, see a **clock** in the corner of the screen, and search, calculate or jump to a site from one **OmniBar** (`Alt+Space`). Your setup syncs through your own free server, or stays offline.
 
-> **Status:** prototype **0.0.0+1** — [download it from Releases](https://github.com/aydieojewelry/MouseComb/releases). **M1 is built** for **Windows and Linux**: OmniBar with a Pomodoro timer, Clock with analog and digital faces, Pomodoro, first-launch sign-in and auto-updates. Self-updating releases start once the owner finishes the one-time GitHub setup in [`PIPELINE.md`](PIPELINE.md).
+> [!NOTE]
+> **Status:** prototype **0.1.0+2**, [download from Releases](https://github.com/aydieojewelry/MouseComb/releases). Hotkeys, Hyper-Key and gestures start **off**: one switch in Settings → Bindings; `Ctrl+Alt+Pause` turns them off again. **Working on this repo with an AI agent? Start at [`CR/CR.md`](CR/CR.md) and say `>resume`.**
 
-## What works today
-- **OmniBar** on a global shortcut (`Alt+Space`, changeable): installed apps, commands, snippets, a calculator, web addresses and web search, Windows Settings pages, lock/sleep/restart (with a confirm step), and every Settings page
-- **Clock** in the screen corner that fades when your mouse comes near and shows the Pomodoro countdown
-- **Pomodoro** with notifications, a tray item, and focus stats that sync
-- **First launch:** sign in, create an account or use it offline; password reset by email
-- **Updates** download in the background and install on restart (release builds)
-- Tray app that starts with Windows; everything saves locally first, then syncs through your own free PocketBase server
+## What it does
+- **Hotkeys, CapsLock Hyper-Key and mouse gestures** → any action (Windows hooks; Linux has hotkeys on X11)
+- **Snippets** you copy in one step or have typed for you, with `{DATE}`, `{TIME}`, `{USER}`, `{CLIPBOARD}`
+- **Pomodoro** with notifications, a timer view in the OmniBar and synced focus stats
+- **Clock widget** with analog and digital faces that fades when your mouse comes near
+- **OmniBar:** apps, commands, snippets, a calculator, web addresses, web search and DuckDuckGo-style **bangs** (`!yt cats`, plus your own)
+- **Updates and What's New:** installed copies find new versions by themselves and show what changed
 
 ## Run it
-
-Prerequisites: Rust (stable), Node 22 + pnpm 10, Go 1.27+ for the backend, and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS (WebView2 is built into Windows 10/11).
-
 ```sh
 pnpm install
-
-# 1. Backend (keep it running)
-cd services/pocketbase && go run . serve --http 127.0.0.1:8090
-
-# 2. Desktop app (another terminal, repo root)
-pnpm dev
+cd services/pocketbase && go run . serve --http 127.0.0.1:8090   # backend, keep running
+pnpm dev                                                          # the app
+pnpm --filter @mousecomb/desktop dev                              # or only the UI in a browser: http://localhost:1420
 ```
-
-The first launch shows the sign-in page; press `Alt+Space` for the OmniBar. To preview only the UI in a browser with example data: `pnpm --filter @mousecomb/desktop dev`, then open http://localhost:1420 (`#/omnibar` and `#/hud` show those windows).
-
-## Check it
-```sh
-cargo test --workspace                     # add MC_TEST_PB_URL=http://127.0.0.1:8090 for live backend tests
-cargo clippy --workspace --all-targets
-pnpm -r typecheck && pnpm -r test
-node --test "scripts/*.test.mjs"                       # release version script
-```
+On Windows you can double-click the files in [`scripts/win`](scripts/win/README.md) instead. All commands, local addresses, tunnelling and checks: **Launch** in [`CR/CR.md`](CR/CR.md#launch).
 
 ## Layout
 | Path | What |
 |---|---|
 | `apps/desktop` | Tauri app: `src-tauri/` (Rust shell) and `src/` (React) |
-| `packages/ui` | Design tokens, Ark UI components, icons |
-| `packages/data` | Live data (TanStack DB + Query) over the Rust commands |
-| `packages/bindings` | Typed client generated from Rust (`pnpm bindings`) |
-| `crates/mc-core` · `mc-store` · `mc-sync` | Data model, actions, Pomodoro timer, local SQLite store, sync client |
-| `crates/mc-win` | Windows-only code: installed apps, power commands (later hooks and input) |
+| `packages/ui` · `data` · `bindings` | Design tokens and components · live data · typed client generated from Rust |
+| `crates/mc-core` · `mc-store` · `mc-sync` · `mc-win` | Pure logic and input engine · SQLite store · sync client · Windows-only code |
 | `services/pocketbase` | The backend, with free hosting notes |
+| `scripts` | Release versions, the docs check, and the Windows `.bat` commands |
+| `CR` | The hand-off folder: state, rules, spec, log, backlog |
 
-## Stack
-Tauri v2 + Rust · React 19 + TypeScript · Ark UI (Zag.js) · TanStack Router / DB / Query / Form / Virtual / Pacer · Tailwind v4 · SQLite · PocketBase.
+Tauri v2 + Rust · React 19 + TypeScript · Ark UI (Zag.js) · TanStack Router / DB / Query / Form / Virtual · Tailwind v4 · SQLite · PocketBase.
 
 ## Documents
-Every human-readable file in the repo:
+Every human-readable file in the repo (`node scripts/docs-check.mjs` fails if one is missing here):
 
 | File | What it's for |
 |---|---|
-| [`README.md`](README.md) | This page: what MouseComb is, how to run and check it |
-| [`APP_SPEC.md`](APP_SPEC.md) | Single source of truth: features, architecture, data & sync, privacy, licensing, milestones, decisions |
-| [`VERSIONING.md`](VERSIONING.md) | Version format `x.y.z+b`, how versions are chosen and released, branches (with git graphs) |
-| [`CHANGELOG.md`](CHANGELOG.md) | What changed for users in each release |
-| [`DEVLOG.md`](DEVLOG.md) | What each work session did, newest first |
-| [`PIPELINE.md`](PIPELINE.md) | How a change gets from a branch to users: build loop, review, merge, weekly release, rollout, Insights add-on |
-| [`CLAUDE.md`](CLAUDE.md) | Rules and commands for AI coding agents |
-| [`AGENTS.md`](AGENTS.md) | Starting point for any AI agent (Antigravity, Codex, Cursor, …) |
-| [`.claude/skills/steward/SKILL.md`](.claude/skills/steward/SKILL.md) | Step-by-step procedure agents follow: build-test loop → PR → approval → merge → release |
+| [`README.md`](README.md) | This page |
+| [`CR/CR.md`](CR/CR.md) | **Start here.** State, commands, Launch, Versioning (git graph), rules, and the TOON knowledge block for agents |
+| [`CR/META-RULES.md`](CR/META-RULES.md) | How we work: the owner's preferences, rules, design intents, workflows, lessons, reply style, the human-in-the-loop system, app-shell-first SOP |
+| [`CR/BACKLOG.md`](CR/BACKLOG.md) | Ideas not yet planned, with design notes (converter, screen edges, …) |
+| [`CR/APP_SPEC.md`](CR/APP_SPEC.md) | Single source of truth: features, architecture, data and sync, privacy, licensing, milestones, decisions |
+| [`CR/DEVLOG.md`](CR/DEVLOG.md) | What each work session did, newest first |
+| [`CR/PIPELINE.md`](CR/PIPELINE.md) | Branch to users: build loop, review, merge, release, hotfix, update feed, the owner's one-time setup |
+| [`CHANGELOG.md`](CHANGELOG.md) | `## Next` is the owner's intent; each section is a release (also shown in the app's What's new page) |
+| [`CLAUDE.md`](CLAUDE.md) | Rules and commands for Claude Code |
+| [`AGENTS.md`](AGENTS.md) | Starting point for any other AI agent (Antigravity, Codex, Cursor, …) |
+| [`.claude/skills/steward/SKILL.md`](.claude/skills/steward/SKILL.md) | Step by step: build-test loop → PR → approval → merge → release |
 | [`.github/pull_request_template.md`](.github/pull_request_template.md) | Checklist every pull request fills in |
+| [`scripts/win/README.md`](scripts/win/README.md) | The Windows `.bat` commands |
 | [`services/pocketbase/README.md`](services/pocketbase/README.md) | The backend: running, deploying, free 24/7 hosting |
-
-Coming with the first release: `CHANGELOG.md` (user-facing changes per version). Coming in M2: `reports/usage/` (weekly usage reports).

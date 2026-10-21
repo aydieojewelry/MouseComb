@@ -2,7 +2,7 @@
 //! background, install when the user restarts or quits MouseComb.
 //!
 //! Only release builds can update: the release workflow writes the updater
-//! public key into tauri.conf.json (PIPELINE.md). Without it updates are off.
+//! public key into tauri.conf.json (CR/PIPELINE.md). Without it updates are off.
 
 use std::time::Duration;
 
@@ -57,7 +57,7 @@ pub struct Updates {
     pending: Option<(Update, Vec<u8>)>,
 }
 
-/// `x.y.z+b` (VERSIONING.md): the installer's `x.y.z` and the build number.
+/// `x.y.z+b` (CR/CR.md, Versioning): the installer's `x.y.z` and the build number.
 pub fn display_version(major: u64, minor: u64, patch: u64) -> String {
     let build = option_env!("MOUSECOMB_BUILD").unwrap_or("0");
     format!("{major}.{minor}.{patch}+{build}")

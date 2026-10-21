@@ -1,10 +1,10 @@
 # MouseComb — Dev Log (pre-production)
 
-Manual build log until production 1.0 (see `APP_SPEC.md` §8). Newest entry on top.
+Manual build log until production 1.0 (see [`APP_SPEC.md`](APP_SPEC.md) §8). Newest entry on top; name the version it shipped in.
 Template:
 
 ```
-## B-000N — YYYY-MM-DD — <title>
+## x.y.z+b — YYYY-MM-DD — <title>
 - Done:
 - Files:
 - Blockers / decisions:
@@ -12,6 +12,16 @@ Template:
 ```
 
 ---
+
+## 0.1.0+2 — 2026-10-21 — Hotkeys, Hyper-Key, gestures, snippet typing, bangs, What's New; the CR hand-off
+- Owner asks: all six deliverables in one app (mouse gestures, assignable hotkeys, snippet injection, Pomodoro, clock widget, OmniBar search), pushed to GitHub for build; a hand-off an agent in another session can resume from; versioning made simple; branches closed with one final merge node. Owner decisions: hooks **off by default** with one switch and a panic key (DEC-025); changelog-driven versions, releases from `main`, `b` = hotfix with no branch (DEC-026); keep every doc and put `CR` on top (DEC-027); the old `ccr-9359ffeb-6k6r22` branch is archived as a tag, then deleted; jewellery units are out of the converter.
+- Done, input engine: pure `mc_core::input` (`GestureTracker`, `Hyper`, `Ledger`, `Engine`) and `mc_core::bindings` (`Trigger`, `Binding`, resolver), all unit-tested; `mc-win` hooks (`WH_KEYBOARD_LL`/`WH_MOUSE_LL` on a thread, trivial callbacks, tagged injection), `SendInput` snippet typing with a stop flag, foreground process lookup; `engine.rs` registers hotkeys one by one with the global-shortcut plugin, runs the hook consumer, resolves with the foreground app and runs actions; the panic key runs off the shortcut handler thread (it deadlocked on the plugin's mutex before).
+- Done, actions and UI: 13 new actions (send keys, volume, media, desktops, snippet typing, input toggle); `binding` and `bang` item kinds (no migration); Settings → Bindings (master switch, Hyper and gesture options, list, editor with TanStack Form + Zod); `ShortcutButton`, `SelectField`; bangs (`omnibar/bangs.ts`, 62 built in, Settings → General → Bangs); What's New page from `CHANGELOG.md`, shown once after an update (`whatsnew.rs`); the release workflow copies `latest.json` to the fixed `updates` release so pre-releases can self-update.
+- Done, process: changelog-driven `scripts/version.mjs` (`status`, `release`, `plan`, hotfix, retired `v0.1.0+11`), `release.yml` from `main` only with a hotfix input; `scripts/docs-check.mjs` (links, wikilinks, TOON parse, commands, README table); `scripts/win/*.bat`; the `CR` folder (`CR.md`, `META-RULES.md`, `BACKLOG.md`; spec, log and pipeline moved in with `git mv`); README, CLAUDE.md, AGENTS.md, steward skill and PR template updated.
+- Verified: fresh Xvfb profile with a seeded binding: `Ctrl+Alt+P` started the Pomodoro, a bound Sleep asked for confirmation, a snippet hotkey copied on Linux, the panic key turned input off; browser preview of Bindings, Bangs and What's new with no console errors; 63 Rust tests with the live backend, 19 data + 21 desktop Vitest, 43 script tests, clippy `-D warnings` on Linux and `x86_64-pc-windows-gnu`.
+- **Not verified:** the Windows hooks and `SendInput` have never run on real Windows (cross-compiled and logic-tested only). Owner to run: 30 minutes of normal typing with hooks on (no stuck keys), gestures, snippet typing, panic key.
+- Known limits: a hotkey with `only_in` still swallows the key in other apps; Hyper-Key, gestures and typing are Windows-only (Linux copies the snippet); self-update waits for the owner's signing key.
+- Next: owner tests on Windows and reports; one-time GitHub setup (`PIPELINE.md`); then the converter and screen edges from [`BACKLOG.md`](BACKLOG.md).
 
 ## 0.0.0+1 — 2026-10-20 — Windows start-up fix; numbering restarts at 0.0.0+1
 - Owner report (0.1.0+11 on Windows): the main window showed "Something went wrong!" with an empty message while the clock worked.
