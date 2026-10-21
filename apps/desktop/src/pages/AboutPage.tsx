@@ -1,22 +1,9 @@
 import { errorMessage, useAppInfo, useRunAction, useUpdateStatus } from "@mousecomb/data";
 import { Button, DownloadIcon, Section, StatusDot, SyncIcon, toaster } from "@mousecomb/ui";
+import { Link } from "@tanstack/react-router";
 
 import { PageHeader } from "../components/PageHeader";
 import { timeAgo } from "../time";
-
-const BUILT = [
-  "OmniBar on a global shortcut: apps, commands, snippets, calculator, web search, Settings",
-  "Clock in the screen corner that fades when your mouse comes near, with the Pomodoro countdown",
-  "Pomodoro timer with notifications and synced focus stats",
-  "Sign-in with sync across PCs, or use it offline",
-  "Updates itself every week, in the background",
-];
-
-const NEXT = [
-  "M2: opt-in usage counts and release health checks",
-  "M3: CapsLock Hyper-Key and bindable Windows actions",
-  "M4: Bindings editor and workflows",
-];
 
 function UpdatesSection() {
   const { data: status } = useUpdateStatus();
@@ -96,19 +83,16 @@ export function AboutPage() {
         </dl>
       </Section>
       <UpdatesSection />
-      <Section title="What works in this build">
-        <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-sm">
-          {BUILT.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
-      </Section>
-      <Section title="Coming next">
-        <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-sm text-muted">
-          {NEXT.map((b) => (
-            <li key={b}>{b}</li>
-          ))}
-        </ul>
+      <Section
+        title="What's new"
+        description="What changed in each version, in plain words."
+        aside={
+          <Link to="/whats-new" className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-raised">
+            See what's new
+          </Link>
+        }
+      >
+        <p className="m-0 text-sm text-muted">It opens by itself once after an update.</p>
       </Section>
     </div>
   );

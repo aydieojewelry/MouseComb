@@ -1,4 +1,4 @@
-import { CloudSyncIcon, InfoIcon, KeyboardIcon, SlidersIcon, SnippetIcon, TimerIcon, type Icon } from "@mousecomb/ui";
+import { CloudSyncIcon, InfoIcon, KeyboardIcon, SlidersIcon, SnippetIcon, SparkleIcon, TimerIcon, type Icon } from "@mousecomb/ui";
 import { Link, Outlet } from "@tanstack/react-router";
 
 import { SyncBadge } from "./SyncBadge";
@@ -11,6 +11,7 @@ const nav: Array<{ to: SettingsPage; label: string; icon: Icon }> = [
   { to: "/bindings", label: "Bindings", icon: KeyboardIcon },
   { to: "/snippets", label: "Snippets", icon: SnippetIcon },
   { to: "/account", label: "Account & sync", icon: CloudSyncIcon },
+  { to: "/whats-new", label: "What's new", icon: SparkleIcon },
   { to: "/about", label: "About", icon: InfoIcon },
 ];
 

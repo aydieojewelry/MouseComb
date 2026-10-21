@@ -177,7 +177,7 @@ jobs:
 
   release:
     name: Publish the release
-    needs: [draft, publish]
+    needs: [plan, draft, publish]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/github-script@v7
@@ -185,4 +185,48 @@ jobs:
           ID: ${{ needs.draft.outputs.id }}
         with:
           script: |
-            await github.rest.repos.updateRelease({ ...context.repo, release_id: Number(process.env.ID), draft: false });
+            const release_id = Number(process.env.ID);
+            await github.rest.repos.updateRelease({ ...context.repo, release_id, draft: false });
+
+            // Installed apps read their update feed from a fixed release tag, `updates`:
+            // GitHub's "latest" skips pre-releases, and every 0.y.z version is one (FEAT-022).
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id });
+            const feed = assets.find((a) => a.name === "latest.json");
+            if (!feed) {
+              core.warning("This release has no latest.json (no updater key yet), so the update feed is unchanged.");
+              return;
+            }
+            const download = await github.request("GET /repos/{owner}/{repo}/releases/assets/{asset_id}", {
+              ...context.repo,
+              asset_id: feed.id,
+              headers: { accept: "application/octet-stream" },
+            });
+            const data = Buffer.from(download.data);
+
+            let channel;
+            try {
+              channel = (await github.rest.repos.getReleaseByTag({ ...context.repo, tag: "updates" })).data;
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              channel = (
+                await github.rest.repos.createRelease({
+                  ...context.repo,
+                  tag_name: "updates",
+                  target_commitish: context.sha,
+                  name: "Update feed (automatic)",
+                  body: "Installed copies of MouseComb read `latest.json` from here to find new versions. Nothing to download: get the installers from the numbered releases.",
+                  prerelease: true,
+                })
+              ).data;
+            }
+            for (const old of channel.assets.filter((a) => a.name === "latest.json")) {
+              await github.rest.repos.deleteReleaseAsset({ ...context.repo, asset_id: old.id });
+            }
+            await github.rest.repos.uploadReleaseAsset({
+              ...context.repo,
+              release_id: channel.id,
+              name: "latest.json",
+              data,
+              headers: { "content-type": "application/json", "content-length": data.length },
+            });
+            core.info("Update feed now points at ${{ needs.plan.outputs.display }}.");

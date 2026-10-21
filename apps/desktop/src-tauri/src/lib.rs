@@ -16,6 +16,7 @@ mod state;
 mod sync_loop;
 mod tray;
 mod updates;
+mod whatsnew;
 
 use std::sync::atomic::Ordering;
 
@@ -167,6 +168,7 @@ pub fn run() {
             sync_loop::start(app.handle().clone());
             pomodoro::start(app.handle().clone());
             updates::start(app.handle().clone());
+            whatsnew::start(app.handle().clone(), minimized);
             engine::reload(app.handle());
             overlays::set_hud_visible(app.handle(), prefs.hud_enabled);
             overlays::start_hud_fade(app.handle().clone());

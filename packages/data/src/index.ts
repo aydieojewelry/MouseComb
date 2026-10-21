@@ -1,5 +1,6 @@
 export { AppError, errorMessage, unwrap } from "./errors";
 export { createItemCollection } from "./items";
+export { inlineParts, parseChangelog, type ChangelogEntry, type ChangelogGroup, type InlinePart } from "./changelog";
 export { bangInputSchema, bangsCollection, bangTriggerSchema, type Bang } from "./bangs";
 export {
   actionChoices,

@@ -170,3 +170,10 @@ export const EditIcon = make(
     <path d="M12.5 4.5l3 3L7 16H4v-3l8.5-8.5Z" />
   </>,
 );
+
+export const SparkleIcon = make(
+  <>
+    <path d="M9 3.5 10.6 8 15 9.5 10.6 11 9 15.5 7.4 11 3 9.5 7.4 8 9 3.5Z" />
+    <path d="M15.5 3v3M14 4.5h3" />
+  </>,
+);

@@ -25,6 +25,7 @@ const page = {
   snippets: lazyRouteComponent(() => import("./pages/SnippetsPage"), "SnippetsPage"),
   account: lazyRouteComponent(() => import("./pages/AccountPage"), "AccountPage"),
   about: lazyRouteComponent(() => import("./pages/AboutPage"), "AboutPage"),
+  whatsNew: lazyRouteComponent(() => import("./pages/WhatsNewPage"), "WhatsNewPage"),
 };
 
 // Each window loads the same app on its own route: `main` shows Settings
@@ -70,13 +71,14 @@ const snippetsRoute = createRoute({
 
 const accountRoute = createRoute({ getParentRoute: () => settingsRoute, path: "account", component: page.account });
 const aboutRoute = createRoute({ getParentRoute: () => settingsRoute, path: "about", component: page.about });
+const whatsNewRoute = createRoute({ getParentRoute: () => settingsRoute, path: "whats-new", component: page.whatsNew });
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
   welcomeRoute,
   omnibarRoute,
   hudRoute,
-  settingsRoute.addChildren([generalRoute, pomodoroRoute, bindingsRoute, snippetsRoute, accountRoute, aboutRoute]),
+  settingsRoute.addChildren([generalRoute, pomodoroRoute, bindingsRoute, snippetsRoute, accountRoute, whatsNewRoute, aboutRoute]),
 ]);
 
 // Hash history: every window loads index.html, whatever the route.
@@ -89,7 +91,7 @@ export const router = createRouter({
 });
 
 /** Settings pages Rust may ask the main window to show (`mc.settings.open`). */
-export const SETTINGS_PAGES = ["/general", "/pomodoro", "/bindings", "/snippets", "/account", "/about"] as const;
+export const SETTINGS_PAGES = ["/general", "/pomodoro", "/bindings", "/snippets", "/account", "/whats-new", "/about"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 
 export function isSettingsPage(path: string): path is SettingsPage {

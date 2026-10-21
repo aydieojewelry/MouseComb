@@ -99,6 +99,7 @@ pub const SETTINGS_PAGES: &[(&str, &str, &[&str])] = &[
     ),
     ("snippets", "Snippets", &["text", "templates", "expand"]),
     ("account", "Account & sync", &["sign in", "login", "log in", "sign out", "sync", "server"]),
+    ("whats-new", "What's new", &["changelog", "release notes", "changes", "version"]),
     ("about", "About MouseComb", &["version", "updates", "help"]),
 ];
 
