@@ -2,6 +2,7 @@ import { commands, events } from "@mousecomb/bindings";
 import {
   errorMessage,
   formatClock,
+  bangsCollection,
   LOCAL_SETTINGS,
   PHASE_LABEL,
   pomodoroVerb,
@@ -60,6 +61,7 @@ export function OmniBarPage() {
   const { data: catalog = [] } = useCommands();
   const { data: apps = [] } = useApps();
   const { data: snippets = [] } = useLiveQuery({ query: (q) => q.from({ s: snippetsCollection }) });
+  const { data: bangs = [] } = useLiveQuery({ query: (q) => q.from({ b: bangsCollection }) });
   const { data: timer } = usePomodoro();
   const { data: update } = useUpdateStatus();
   const { data: hotkey } = useHotkeyStatus();
@@ -114,8 +116,8 @@ export function OmniBarPage() {
             },
           ]
         : [];
-    return search(query, { commands: [...extra, ...catalog], apps, snippets, recents, searchUrl, pomodoroTitle });
-  }, [query, catalog, apps, snippets, recents, searchUrl, pomodoroTitle, update]);
+    return search(query, { commands: [...extra, ...catalog], apps, snippets, recents, searchUrl, bangs, pomodoroTitle });
+  }, [query, catalog, apps, snippets, recents, searchUrl, bangs, pomodoroTitle, update]);
 
   const select = (r: Result) => {
     if (r.confirm && armed !== r.key) {

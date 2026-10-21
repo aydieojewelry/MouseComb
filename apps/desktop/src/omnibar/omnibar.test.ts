@@ -1,6 +1,7 @@
 import type { Command } from "@mousecomb/bindings";
 import { describe, expect, it } from "vitest";
 
+import { BUILTIN_BANGS, bangUrl, parseBang, resolveBang } from "./bangs";
 import { calculate, evaluate } from "./calc";
 import { asUrl, matchScore, rememberRecent, search, type Sources } from "./search";
 
@@ -103,5 +104,56 @@ describe("OmniBar search", () => {
     expect(search("pomodoro", live)[0]?.title).toBe("Start Pomodoro · Focus 25:00");
     expect(search("start or pause", live)[0]?.title).toBe("Start Pomodoro · Focus 25:00");
     expect(search("timer", live)[0]?.action).toBe("ext.mc.pomodoro.toggle");
+  });
+});
+
+describe("bangs", () => {
+  const mine = [{ trigger: "jira", name: "Jira", url: "https://acme.atlassian.net/browse/?jql=text~{q}" }];
+
+  it("finds a bang at the start, end or middle of the text", () => {
+    expect(parseBang("!yt cats")).toEqual({ trigger: "yt", terms: "cats" });
+    expect(parseBang("cats !yt")).toEqual({ trigger: "yt", terms: "cats" });
+    expect(parseBang("funny !yt cats")).toEqual({ trigger: "yt", terms: "funny cats" });
+    expect(parseBang("!YT cats")).toEqual({ trigger: "yt", terms: "cats" });
+    expect(parseBang("wow!yt")).toBeNull();
+    expect(parseBang("what!? no")).toBeNull();
+    expect(parseBang("plain words")).toBeNull();
+  });
+
+  it("uses your own bang first, then the built-in list, then DuckDuckGo", () => {
+    expect(resolveBang("!jira login bug", mine)?.site).toMatchObject({ name: "Jira", fallback: false });
+    expect(resolveBang("!g", [{ trigger: "g", name: "Mine", url: "https://x.test/?q={q}" }])?.site.name).toBe("Mine");
+    expect(resolveBang("!yt cats", mine)?.site.name).toBe("YouTube");
+    expect(resolveBang("!wayback example.com", mine)?.site).toMatchObject({ fallback: true });
+    expect(resolveBang("no bang here", mine)).toBeNull();
+  });
+
+  it("builds the address, encoding the words", () => {
+    const yt = resolveBang("!yt cats & dogs", [])!;
+    expect(bangUrl(yt)).toBe("https://www.youtube.com/results?search_query=cats%20%26%20dogs");
+    expect(bangUrl(resolveBang("!yt", [])!)).toBe("https://www.youtube.com");
+    expect(bangUrl(resolveBang("!wayback example.com", [])!)).toBe("https://duckduckgo.com/?q=!wayback+example.com");
+    expect(bangUrl(resolveBang("!wayback", [])!)).toBe("https://duckduckgo.com/?q=!wayback");
+  });
+
+  it("every built-in bang has a {q} and a valid address", () => {
+    for (const [trigger, site] of Object.entries(BUILTIN_BANGS)) {
+      expect(trigger).toMatch(/^[a-z0-9]{1,16}$/);
+      expect(site.url).toContain("{q}");
+      expect(() => new URL(site.url.replace("{q}", "x"))).not.toThrow();
+    }
+  });
+
+  it("comes first in the OmniBar, ahead of the calculator and the web fallback", () => {
+    const out = search("!yt cats", { ...sources, bangs: [] });
+    expect(out[0]).toMatchObject({
+      kind: "search",
+      title: "Search YouTube for “cats”",
+      action: "core.os.shell.open_url",
+      args: { url: "https://www.youtube.com/results?search_query=cats" },
+    });
+    expect(search("2+2 !g", sources)[0]?.key).toBe("bang:g");
+    expect(search("!jira bug", { ...sources, bangs: mine })[0]?.hint).toBe("!jira · acme.atlassian.net");
+    expect(rememberRecent([], "bang:yt")).toEqual([]);
   });
 });

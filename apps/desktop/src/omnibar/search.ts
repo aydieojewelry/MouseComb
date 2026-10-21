@@ -5,8 +5,9 @@
  * Pure functions: the page passes in the data and renders the list.
  */
 import type { App, Command } from "@mousecomb/bindings";
-import type { Snippet } from "@mousecomb/data";
+import type { Bang, Snippet } from "@mousecomb/data";
 
+import { bangUrl, resolveBang } from "./bangs";
 import { calculate } from "./calc";
 
 export type ResultKind = "command" | "app" | "snippet" | "calc" | "url" | "search";
@@ -30,6 +31,8 @@ export type Sources = {
   snippets: Snippet[];
   recents: string[];
   searchUrl: string;
+  /** Your own bangs; they win over the built-in ones. */
+  bangs?: Bang[];
   /** Replaces the Pomodoro toggle's title with what it will do now. */
   pomodoroTitle?: string;
 };
@@ -140,11 +143,25 @@ export function search(query: string, src: Sources, limit = 60): Result[] {
     .map((s) => s.result);
 
   const out: Result[] = [];
-  const sum = calculate(q);
+  const bang = resolveBang(q, src.bangs ?? []);
+  if (bang) {
+    const url = bangUrl(bang);
+    const where = new URL(url).hostname.replace(/^www\./, "");
+    out.push({
+      key: `bang:${bang.trigger}`,
+      kind: "search",
+      title: bang.terms ? `Search ${bang.site.name} for “${bang.terms}”` : `Open ${bang.site.name}`,
+      hint: `!${bang.trigger} · ${where}`,
+      action: "core.os.shell.open_url",
+      args: { url },
+      confirm: false,
+    });
+  }
+  const sum = bang ? null : calculate(q);
   if (sum !== null) {
     out.push({ key: "calc", kind: "calc", title: sum, hint: `${q} =  ·  Enter copies the result`, action: "core.os.clipboard.set_text", args: { text: sum }, confirm: false });
   }
-  const url = asUrl(q);
+  const url = bang ? null : asUrl(q);
   if (url) {
     out.push({ key: `url:${url}`, kind: "url", title: `Open ${q}`, hint: url, action: "core.os.shell.open_url", args: { url }, confirm: false });
   }
@@ -163,6 +180,6 @@ export function search(query: string, src: Sources, limit = 60): Result[] {
 
 /** Remember a run: newest first, no repeats, capped. Typed-in results aren't kept. */
 export function rememberRecent(recents: string[], key: string, max = 20): string[] {
-  if (key === "calc" || key === "search" || key.startsWith("url:")) return recents;
+  if (key === "calc" || key === "search" || key.startsWith("url:") || key.startsWith("bang:")) return recents;
   return [key, ...recents.filter((k) => k !== key)].slice(0, max);
 }

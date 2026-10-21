@@ -33,6 +33,7 @@ import { useState } from "react";
 
 import { HudPreview } from "../components/HudPreview";
 import { PageHeader } from "../components/PageHeader";
+import { BangsCard } from "./BangsCard";
 import { useDraft } from "../components/useDraft";
 import { useNow } from "../components/useNow";
 
@@ -234,6 +235,7 @@ export function GeneralPage() {
         <OmniBarCard />
         <SearchCard />
       </div>
+      <BangsCard />
       <ClockCard />
       <BasicsCard />
     </div>

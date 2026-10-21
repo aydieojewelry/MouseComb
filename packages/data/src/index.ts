@@ -1,5 +1,6 @@
 export { AppError, errorMessage, unwrap } from "./errors";
 export { createItemCollection } from "./items";
+export { bangInputSchema, bangsCollection, bangTriggerSchema, type Bang } from "./bangs";
 export {
   actionChoices,
   bindingInputSchema,
