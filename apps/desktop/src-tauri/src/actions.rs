@@ -9,13 +9,12 @@ use specta::Type;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
-use tauri_specta::Event;
 
 use crate::commands::Json;
 use crate::error::{CommandError, CommandResult, ErrorCode};
-use crate::overlays::{self, HudFlash};
+use crate::overlays;
 use crate::state::AppState;
-use crate::{pomodoro, prefs, sync_loop, updates};
+use crate::{engine, pomodoro, prefs, sync_loop, updates};
 
 #[derive(Clone, Debug, Default, Serialize, Type)]
 pub struct ActionResult {
@@ -36,9 +35,20 @@ impl ActionResult {
 pub async fn action_run(app: AppHandle, action: String, args: Json, confirmed: bool) -> CommandResult<ActionResult> {
     let result = run(&app, &action, &args.0, confirmed).await?;
     if let Some(text) = &result.message {
-        let _ = HudFlash { text: text.clone() }.emit_to(&app, overlays::HUD);
+        overlays::flash(&app, text);
     }
     Ok(result)
+}
+
+/// Run an action from a key press or gesture: whatever it says, or why it failed, shows on the HUD.
+pub async fn run_and_flash(app: &AppHandle, action: &str, with: &Value, confirmed: bool) {
+    let text = match run(app, action, with, confirmed).await {
+        Ok(result) => result.message,
+        Err(e) => Some(e.message),
+    };
+    if let Some(text) = text {
+        overlays::flash(app, &text);
+    }
 }
 
 fn arg<'a>(with: &'a Value, name: &str) -> CommandResult<&'a str> {
@@ -58,6 +68,10 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
     }
     if actions::needs_confirmation(action) && !confirmed {
         return Err(CommandError::new(ErrorCode::Validation, "Confirm this action first."));
+    }
+
+    if let Some(keys) = actions::keys_for(action) {
+        return send_shortcut(keys).await;
     }
 
     match action {
@@ -138,26 +152,17 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
             }))
         }
         id::SNIPPET_COPY => {
-            let key = arg(with, "id")?;
-            let store = &app.state::<AppState>().store;
-            let snippet = store
-                .get(mc_core::kind::SNIPPET, key)?
-                .as_ref()
-                .and_then(mc_core::Snippet::from_item)
-                .ok_or_else(|| CommandError::new(ErrorCode::Validation, "That snippet was deleted."))?;
-            let now = chrono::Local::now();
-            let (date, time) = (now.format("%Y-%m-%d").to_string(), now.format("%H:%M:%S").to_string());
-            let user = std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_default();
-            // Reading the clipboard can be slow (the owning app renders it), so only when used.
-            let clipboard = if snippet.text.contains("{CLIPBOARD}") {
-                app.clipboard().read_text().unwrap_or_default()
-            } else {
-                String::new()
-            };
-            let tokens = mc_core::SnippetTokens { date: &date, time: &time, user: &user, clipboard: &clipboard };
-            set_clipboard(app, &mc_core::fill_snippet(&snippet.text, &tokens))?;
+            let (snippet, text) = filled_snippet(app, arg(with, "id")?)?;
+            set_clipboard(app, &text)?;
             Ok(ActionResult::say(format!("Copied “{}”", snippet.title)))
         }
+        id::SNIPPET_TYPE => type_snippet(app, arg(with, "id")?).await,
+        id::INPUT_TOGGLE => {
+            let on = !app.state::<AppState>().prefs().input_enabled;
+            engine::set_enabled(app, on)?;
+            Ok(ActionResult::say(if on { "Hotkeys are on" } else { "Hotkeys are off" }))
+        }
+        id::INPUT_SEND => send_shortcut(arg(with, "keys")?).await,
         id::CLIPBOARD_SET => {
             let text = with.get("text").and_then(Value::as_str).unwrap_or_default();
             set_clipboard(app, text)?;
@@ -187,6 +192,54 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
         id::SHUT_DOWN => os(mc_win::power::shut_down()),
         other => Err(CommandError::new(ErrorCode::Validation, format!("{other} can't run from here yet."))),
     }
+}
+
+/// A snippet and its text with `{DATE}`, `{TIME}`, `{USER}` and `{CLIPBOARD}` filled in.
+fn filled_snippet(app: &AppHandle, id: &str) -> CommandResult<(mc_core::Snippet, String)> {
+    let store = &app.state::<AppState>().store;
+    let snippet = store
+        .get(mc_core::kind::SNIPPET, id)?
+        .as_ref()
+        .and_then(mc_core::Snippet::from_item)
+        .ok_or_else(|| CommandError::new(ErrorCode::Validation, "That snippet was deleted."))?;
+    let now = chrono::Local::now();
+    let (date, time) = (now.format("%Y-%m-%d").to_string(), now.format("%H:%M:%S").to_string());
+    let user = std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_default();
+    // Reading the clipboard can be slow (the owning app renders it), so only when used.
+    let clipboard = if snippet.text.contains("{CLIPBOARD}") {
+        app.clipboard().read_text().unwrap_or_default()
+    } else {
+        String::new()
+    };
+    let tokens = mc_core::SnippetTokens { date: &date, time: &time, user: &user, clipboard: &clipboard };
+    let text = mc_core::fill_snippet(&snippet.text, &tokens);
+    Ok((snippet, text))
+}
+
+/// Type a snippet into the program that had focus (FEAT-005b). Windows types it; elsewhere it's copied.
+async fn type_snippet(app: &AppHandle, id: &str) -> CommandResult<ActionResult> {
+    let (snippet, text) = filled_snippet(app, id)?;
+    if !cfg!(windows) {
+        set_clipboard(app, &text)?;
+        return Ok(ActionResult::say(format!("Copied “{}”: press Ctrl+V", snippet.title)));
+    }
+    // From the OmniBar: let it close and focus return before typing.
+    overlays::hide_omnibar(app);
+    tokio::time::sleep(std::time::Duration::from_millis(180)).await;
+    tauri::async_runtime::spawn_blocking(move || mc_win::keys::type_text(&text))
+        .await
+        .map_err(|e| CommandError::new(ErrorCode::System, e.to_string()))??;
+    Ok(ActionResult::say(format!("Typed “{}”", snippet.title)))
+}
+
+/// Press a key combination such as `Ctrl+Shift+T` or `MediaPlayPause`.
+async fn send_shortcut(keys: &str) -> CommandResult<ActionResult> {
+    let (modifiers, key) = mc_core::input::combo_vks(keys)
+        .ok_or_else(|| CommandError::new(ErrorCode::Validation, format!("MouseComb can't press \"{keys}\".")))?;
+    tauri::async_runtime::spawn_blocking(move || mc_win::keys::send_combo(&modifiers, key))
+        .await
+        .map_err(|e| CommandError::new(ErrorCode::System, e.to_string()))??;
+    Ok(ActionResult::default())
 }
 
 fn set_clipboard(app: &AppHandle, text: &str) -> CommandResult<()> {

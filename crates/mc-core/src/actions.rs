@@ -26,6 +26,17 @@ pub mod id {
     pub const POMODORO_RESET: &str = "ext.mc.pomodoro.reset";
     pub const POMODORO_EXTEND: &str = "ext.mc.pomodoro.extend";
     pub const SNIPPET_COPY: &str = "ext.mc.snippets.copy";
+    pub const SNIPPET_TYPE: &str = "ext.mc.snippets.type";
+    pub const INPUT_TOGGLE: &str = "mc.input.toggle";
+    pub const INPUT_SEND: &str = "core.os.input.send";
+    pub const VOLUME_UP: &str = "core.os.audio.volume_up";
+    pub const VOLUME_DOWN: &str = "core.os.audio.volume_down";
+    pub const VOLUME_MUTE: &str = "core.os.audio.mute";
+    pub const MEDIA_PLAY_PAUSE: &str = "core.os.media.play_pause";
+    pub const MEDIA_NEXT: &str = "core.os.media.next";
+    pub const MEDIA_PREV: &str = "core.os.media.prev";
+    pub const DESKTOP_NEXT: &str = "core.os.desktops.next";
+    pub const DESKTOP_PREV: &str = "core.os.desktops.prev";
     pub const APP_LAUNCH: &str = "core.os.apps.launch";
     pub const OPEN_URL: &str = "core.os.shell.open_url";
     pub const CLIPBOARD_SET: &str = "core.os.clipboard.set_text";
@@ -81,6 +92,11 @@ fn command(action: &str, with: Value, title: &str, hint: &str, keywords: &[&str]
 pub const SETTINGS_PAGES: &[(&str, &str, &[&str])] = &[
     ("general", "General settings", &["preferences", "options", "hotkey", "startup", "clock", "hud"]),
     ("pomodoro", "Pomodoro settings", &["durations", "break length", "stats"]),
+    (
+        "bindings",
+        "Bindings, hotkeys and gestures",
+        &["shortcut", "keyboard", "hyper", "capslock", "mouse", "gesture", "hotkey"],
+    ),
     ("snippets", "Snippets", &["text", "templates", "expand"]),
     ("account", "Account & sync", &["sign in", "login", "log in", "sign out", "sync", "server"]),
     ("about", "About MouseComb", &["version", "updates", "help"]),
@@ -142,6 +158,14 @@ fn build_catalog() -> Vec<Command> {
             &["hud", "clock", "time", "overlay"],
             MouseComb,
         ),
+        command(
+            id::INPUT_TOGGLE,
+            Value::Null,
+            "Turn hotkeys and gestures on or off",
+            "MouseComb",
+            &["input", "pause", "bindings", "gestures", "panic"],
+            MouseComb,
+        ),
         command(id::QUIT, Value::Null, "Quit MouseComb", "MouseComb", &["exit", "close"], MouseComb),
         command(
             id::OMNIBAR_OPEN,
@@ -180,6 +204,19 @@ fn build_catalog() -> Vec<Command> {
     for (page, title, words) in WINDOWS_SETTINGS_PAGES {
         out.push(command(id::WINDOWS_SETTINGS, json!({ "page": page }), title, "Windows Settings", words, Windows));
     }
+    let keys: [(&str, &str, &[&str]); 8] = [
+        (id::VOLUME_UP, "Volume up", &["louder", "sound", "audio"]),
+        (id::VOLUME_DOWN, "Volume down", &["quieter", "sound", "audio"]),
+        (id::VOLUME_MUTE, "Mute or unmute", &["silence", "sound", "audio"]),
+        (id::MEDIA_PLAY_PAUSE, "Play or pause media", &["music", "spotify", "video"]),
+        (id::MEDIA_NEXT, "Next track", &["music", "skip", "song"]),
+        (id::MEDIA_PREV, "Previous track", &["music", "back", "song"]),
+        (id::DESKTOP_NEXT, "Next virtual desktop", &["workspace", "switch"]),
+        (id::DESKTOP_PREV, "Previous virtual desktop", &["workspace", "switch"]),
+    ];
+    for (action, title, words) in keys {
+        out.push(command(action, Value::Null, title, "Windows", words, Windows));
+    }
     let power: [(&str, &str, &[&str], bool); 5] = [
         (id::LOCK, "Lock screen", &["lock", "away", "secure"], false),
         (id::SLEEP, "Sleep", &["suspend", "standby"], true),
@@ -202,6 +239,8 @@ const UNLISTED: &[&str] = &[
     id::POMODORO_START,
     id::POMODORO_PAUSE,
     id::SNIPPET_COPY,
+    id::SNIPPET_TYPE,
+    id::INPUT_SEND,
     id::APP_LAUNCH,
     id::OPEN_URL,
     id::CLIPBOARD_SET,
@@ -220,6 +259,21 @@ pub fn needs_confirmation(action: &str) -> bool {
 /// Only `http(s)` addresses are opened or used as servers.
 pub fn is_web_url(url: &str) -> bool {
     url.starts_with("https://") || url.starts_with("http://")
+}
+
+/// The key combination an action presses for you, in binding notation.
+pub fn keys_for(action: &str) -> Option<&'static str> {
+    Some(match action {
+        id::VOLUME_UP => "AudioVolumeUp",
+        id::VOLUME_DOWN => "AudioVolumeDown",
+        id::VOLUME_MUTE => "AudioVolumeMute",
+        id::MEDIA_PLAY_PAUSE => "MediaPlayPause",
+        id::MEDIA_NEXT => "MediaTrackNext",
+        id::MEDIA_PREV => "MediaTrackPrevious",
+        id::DESKTOP_NEXT => "Ctrl+Super+ArrowRight",
+        id::DESKTOP_PREV => "Ctrl+Super+ArrowLeft",
+        _ => return None,
+    })
 }
 
 /// The fixed parts of a `ms-settings:` URI; anything else is refused.
@@ -255,6 +309,17 @@ mod tests {
         assert_eq!(timer.with["view"], "pomodoro");
         assert!(OMNIBAR_VIEWS.contains(&"pomodoro"));
         assert!(is_known(id::OMNIBAR_OPEN) && is_known(id::POMODORO_EXTEND));
+    }
+
+    #[test]
+    fn key_actions_press_real_keys() {
+        for c in catalog() {
+            if let Some(keys) = keys_for(&c.action) {
+                assert!(crate::input::combo_vks(keys).is_some(), "{} presses {keys}", c.action);
+            }
+        }
+        assert!(is_known(id::INPUT_SEND) && is_known(id::SNIPPET_TYPE) && is_known(id::INPUT_TOGGLE));
+        assert!(!needs_confirmation(id::VOLUME_UP));
     }
 
     #[test]

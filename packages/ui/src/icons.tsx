@@ -157,3 +157,16 @@ export const DownloadIcon = make(
     <path d="M4 15.5h12" />
   </>,
 );
+
+export const KeyboardIcon = make(
+  <>
+    <rect x="2.5" y="5" width="15" height="10" rx="2" />
+    <path d="M5.5 8h.1M8.5 8h.1M11.5 8h.1M14.5 8h.1M5.5 11h.1M14.5 11h.1M8 12h4" />
+  </>,
+);
+
+export const EditIcon = make(
+  <>
+    <path d="M12.5 4.5l3 3L7 16H4v-3l8.5-8.5Z" />
+  </>,
+);

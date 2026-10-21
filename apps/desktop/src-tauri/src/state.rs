@@ -84,6 +84,10 @@ pub struct AppState {
     /// Settings the Rust side acts on, refreshed when a setting changes.
     pub prefs: RwLock<Prefs>,
     pub hotkey: Mutex<HotkeyStatus>,
+    /// Bindings, read again whenever a binding or input setting changes (FEAT-014).
+    pub bindings: RwLock<mc_core::bindings::Bindings>,
+    /// The registered shortcuts and running hooks.
+    pub input: Mutex<crate::engine::Runtime>,
     pub pomodoro: Mutex<Pomodoro>,
     pub apps: RwLock<AppsCache>,
     pub apps_loading: AtomicBool,
@@ -137,6 +141,8 @@ impl AppState {
             syncing: AtomicBool::new(false),
             prefs: RwLock::new(prefs),
             hotkey: Mutex::new(HotkeyStatus::default()),
+            bindings: RwLock::new(mc_core::bindings::Bindings::default()),
+            input: Mutex::new(crate::engine::Runtime::default()),
             pomodoro: Mutex::new(timer),
             apps: RwLock::new(AppsCache::default()),
             apps_loading: AtomicBool::new(false),

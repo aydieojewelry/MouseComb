@@ -2593,6 +2593,7 @@ dependencies = [
 name = "mc-win"
 version = "0.0.0"
 dependencies = [
+ "mc-core",
  "serde",
  "serde_json",
  "specta",

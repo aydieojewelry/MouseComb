@@ -1,11 +1,14 @@
-//! MouseComb's Windows layer (APP_SPEC §3). M1: the installed-apps list for
-//! the OmniBar and the power commands. Hooks, SendInput and the rest of the
-//! native action catalog arrive in M3.
+//! MouseComb's Windows layer (APP_SPEC §3): the installed-apps list for the
+//! OmniBar, power commands, the app in front, key and text injection
+//! (`SendInput`) and the low-level input hooks.
 //!
 //! Other platforms compile but report [`Error::Unsupported`], so the desktop
 //! app still builds and runs on Linux for development.
 
 pub mod apps;
+pub mod foreground;
+pub mod hooks;
+pub mod keys;
 pub mod power;
 
 #[derive(Debug, thiserror::Error)]

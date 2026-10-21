@@ -99,6 +99,12 @@ export const LOCAL_SETTINGS = {
   onboardingDone: defineSetting("onboarding.done", z.boolean(), false),
   /** Anonymous usage counts (FEAT-024, DEC-018). Collection starts in M2. */
   telemetryEnabled: defineSetting("telemetry.enabled", z.boolean(), true),
+  /** Hotkeys, the Hyper-Key and gestures: off until the user turns them on (FEAT-014). */
+  inputEnabled: defineSetting("input.enabled", z.boolean(), false),
+  /** CapsLock held is the Hyper-Key (FEAT-008). */
+  inputHyper: defineSetting("input.hyper", z.boolean(), false),
+  /** What starts a mouse gesture (FEAT-006). */
+  inputGestures: defineSetting("input.gestures", z.enum(["off", "caps", "rmb"]), "off"),
   /** OmniBar entries run most recently, newest first. */
   omnibarRecents: defineSetting("omnibar.recents", z.array(z.string().max(300)).max(30), [] as string[]),
 } as const;

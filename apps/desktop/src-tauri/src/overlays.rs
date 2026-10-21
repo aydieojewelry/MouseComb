@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, WebviewWindow};
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tauri_specta::Event;
 
 use crate::prefs::HudStyle;
@@ -53,31 +52,9 @@ pub struct HudFlash {
     pub text: String,
 }
 
-/// Register `hotkey` for the OmniBar, replacing the previous one.
-pub fn apply_hotkey(app: &AppHandle, hotkey: &str) {
-    let state = app.state::<AppState>();
-    {
-        let current = state.hotkey.lock().expect("hotkey lock");
-        if current.registered && current.hotkey == hotkey {
-            return;
-        }
-    }
-    let shortcuts = app.global_shortcut();
-    let _ = shortcuts.unregister_all();
-    let status = match shortcuts.register(hotkey) {
-        Ok(()) => HotkeyStatus { hotkey: hotkey.to_owned(), registered: true, message: None },
-        Err(e) => {
-            log::warn!("OmniBar hotkey {hotkey} not registered: {e}");
-            let message = if e.to_string().to_lowercase().contains("parse") || e.to_string().contains("Unrecognized") {
-                format!("MouseComb doesn't understand the shortcut \"{hotkey}\". Record it again.")
-            } else {
-                format!("{hotkey} is already used by another app. Pick a different shortcut.")
-            };
-            HotkeyStatus { hotkey: hotkey.to_owned(), registered: false, message: Some(message) }
-        }
-    };
-    *state.hotkey.lock().expect("hotkey lock") = status.clone();
-    let _ = status.emit(app);
+/// Show a short message on the HUD ("Copied", an error).
+pub fn flash(app: &AppHandle, text: &str) {
+    let _ = HudFlash { text: text.to_owned() }.emit_to(app, HUD);
 }
 
 pub fn toggle_omnibar(app: &AppHandle) {

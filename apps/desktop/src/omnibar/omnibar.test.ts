@@ -77,6 +77,8 @@ describe("OmniBar search", () => {
     expect(timer[0]?.title).toBe("Start or pause Pomodoro");
     expect(search("vsc", sources)[0]?.title).toBe("Visual Studio Code");
     expect(search("work", sources)[0]?.kind).toBe("snippet");
+    const typing = search("work", sources).find((r) => r.action === "ext.mc.snippets.type");
+    expect(typing).toMatchObject({ title: "Type “Work log entry”", args: { id: "s1" } });
     expect(timer.at(-1)).toMatchObject({ kind: "search", args: { url: "https://duckduckgo.com/?q=timer" } });
   });
 

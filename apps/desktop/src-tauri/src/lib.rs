@@ -6,6 +6,7 @@
 mod actions;
 mod apps;
 mod commands;
+mod engine;
 mod error;
 mod overlays;
 mod pomodoro;
@@ -19,7 +20,6 @@ mod updates;
 use std::sync::atomic::Ordering;
 
 use tauri::{AppHandle, Manager, WindowEvent, Wry};
-use tauri_plugin_global_shortcut::ShortcutState;
 use tauri_specta::{Builder, collect_commands, collect_events};
 
 use crate::state::{AccountChanged, AppState, ItemsChanged, NavigateRequested, SyncStatusChanged};
@@ -52,6 +52,7 @@ pub fn specta_builder() -> Builder<Wry> {
             commands::pomodoro_get,
             commands::update_status_get,
             commands::hotkey_status_get,
+            commands::input_status_get,
             commands::omnibar_hide,
             actions::action_run,
         ])
@@ -61,6 +62,7 @@ pub fn specta_builder() -> Builder<Wry> {
             AccountChanged,
             NavigateRequested,
             overlays::HotkeyStatus,
+            engine::InputStatus,
             overlays::OmniBarOpened,
             overlays::HudFade,
             overlays::HudFlash,
@@ -97,23 +99,22 @@ fn schedule_settings_reload(app: &AppHandle) {
     });
 }
 
-fn on_settings_changed(app: &AppHandle) {
+/// Read the settings and bindings again and make the app match them.
+pub(crate) fn on_settings_changed(app: &AppHandle) {
     let state = app.state::<AppState>();
     let next = prefs::Prefs::load(&state.store);
     let before = std::mem::replace(&mut *state.prefs.write().expect("prefs lock"), next.clone());
-    if before == next {
-        return;
+    if before != next {
+        if before.hud_enabled != next.hud_enabled || (next.hud_enabled && before.hud_style != next.hud_style) {
+            overlays::set_hud_visible(app, next.hud_enabled);
+        }
+        if before.pomodoro != next.pomodoro {
+            pomodoro::on_prefs_changed(app, &next.pomodoro);
+        }
+        tray::refresh(app);
     }
-    if before.omnibar_hotkey != next.omnibar_hotkey {
-        overlays::apply_hotkey(app, &next.omnibar_hotkey);
-    }
-    if before.hud_enabled != next.hud_enabled || (next.hud_enabled && before.hud_style != next.hud_style) {
-        overlays::set_hud_visible(app, next.hud_enabled);
-    }
-    if before.pomodoro != next.pomodoro {
-        pomodoro::on_prefs_changed(app, &next.pomodoro);
-    }
-    tray::refresh(app);
+    // Shortcuts, hooks and bindings: also when only a binding changed.
+    engine::reload(app);
 }
 
 pub fn run() {
@@ -131,16 +132,8 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                // The only shortcut registered is the OmniBar's.
-                .with_handler(|app, _shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        overlays::toggle_omnibar(app);
-                    }
-                })
-                .build(),
-        )
+        // Shortcuts are registered one by one in `engine::reload`, each with its own handler.
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
@@ -150,7 +143,7 @@ pub fn run() {
             state.store.set_listener(Some(std::sync::Arc::new(move |kind: &str| {
                 use tauri_specta::Event;
                 let _ = ItemsChanged { kind: kind.to_owned() }.emit(&handle);
-                if kind == mc_core::kind::SETTING {
+                if matches!(kind, mc_core::kind::SETTING | mc_core::kind::BINDING | "local_setting") {
                     schedule_settings_reload(&handle);
                 }
                 let state = handle.state::<AppState>();
@@ -174,7 +167,7 @@ pub fn run() {
             sync_loop::start(app.handle().clone());
             pomodoro::start(app.handle().clone());
             updates::start(app.handle().clone());
-            overlays::apply_hotkey(app.handle(), &prefs.omnibar_hotkey);
+            engine::reload(app.handle());
             overlays::set_hud_visible(app.handle(), prefs.hud_enabled);
             overlays::start_hud_fade(app.handle().clone());
             apps::scan_soon(app.handle().clone());

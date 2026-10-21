@@ -46,6 +46,12 @@ const NAMED_KEYS: &[&str] = &[
     "Comma",
     "Period",
     "Slash",
+    "AudioVolumeMute",
+    "AudioVolumeDown",
+    "AudioVolumeUp",
+    "MediaTrackNext",
+    "MediaTrackPrevious",
+    "MediaPlayPause",
 ];
 
 fn canonical_key(text: &str) -> Option<String> {

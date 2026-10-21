@@ -1,6 +1,24 @@
 export { AppError, errorMessage, unwrap } from "./errors";
 export { createItemCollection } from "./items";
 export {
+  actionChoices,
+  bindingInputSchema,
+  bindingsCollection,
+  choiceFor,
+  conflictingBindings,
+  GESTURE_ARROW,
+  newBindingId,
+  parseTrigger,
+  triggerWords,
+  useInputStatus,
+  type ActionChoice,
+  type Binding,
+  type BindingInput,
+  type GestureButton,
+  type GestureDirection,
+  type TriggerView,
+} from "./bindings";
+export {
   newSnippetId,
   previewSnippet,
   snippetInputSchema,

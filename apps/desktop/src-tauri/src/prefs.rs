@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 
+use mc_core::input::GestureMode;
 use mc_core::{kind, pomodoro};
 use mc_store::Store;
 use serde_json::Value;
@@ -13,6 +14,10 @@ pub const DEFAULT_OMNIBAR_HOTKEY: &str = "Alt+Space";
 pub const HUD_ENABLED: &str = "hud.enabled";
 pub const HUD_SHOW_SECONDS: &str = "hud.show_seconds";
 pub const HUD_STYLE: &str = "hud.style";
+/// Device-only (local settings): hotkeys, the Hyper-Key and gestures are off until the user turns them on.
+pub const INPUT_ENABLED: &str = "input.enabled";
+pub const INPUT_HYPER: &str = "input.hyper";
+pub const INPUT_GESTURES: &str = "input.gestures";
 pub const POMODORO_AUTO_START: &str = "pomodoro.auto_start";
 
 /// The clock's look (`hud.style`); the HUD window is sized for it.
@@ -28,6 +33,9 @@ pub struct Prefs {
     pub omnibar_hotkey: String,
     pub hud_enabled: bool,
     pub hud_style: HudStyle,
+    pub input_enabled: bool,
+    pub input_hyper: bool,
+    pub input_gestures: GestureMode,
     pub hud_fade_near_px: f64,
     pub hud_fade_far_px: f64,
     pub pomodoro: pomodoro::Config,
@@ -39,6 +47,9 @@ impl Default for Prefs {
             omnibar_hotkey: DEFAULT_OMNIBAR_HOTKEY.to_owned(),
             hud_enabled: true,
             hud_style: HudStyle::Digital,
+            input_enabled: false,
+            input_hyper: false,
+            input_gestures: GestureMode::Off,
             hud_fade_near_px: 60.0,
             hud_fade_far_px: 220.0,
             pomodoro: pomodoro::Config::default(),
@@ -69,7 +80,11 @@ impl Prefs {
         let int = |key: &str, min: u64, max: u64| get(key).and_then(Value::as_u64).filter(|n| (min..=max).contains(n));
         let d = Self::default();
         let p = d.pomodoro;
+        let local = |key: &str| store.local_get(key).ok().flatten();
         Self {
+            input_enabled: local(INPUT_ENABLED).and_then(|v| v.as_bool()).unwrap_or(d.input_enabled),
+            input_hyper: local(INPUT_HYPER).and_then(|v| v.as_bool()).unwrap_or(d.input_hyper),
+            input_gestures: local(INPUT_GESTURES).and_then(|v| v.as_str().map(GestureMode::parse)).unwrap_or_default(),
             omnibar_hotkey: get(OMNIBAR_HOTKEY)
                 .and_then(Value::as_str)
                 .filter(|s| !s.trim().is_empty())
@@ -106,9 +121,14 @@ mod tests {
         store.put(kind::SETTING, "pomodoro.short_break_min", json!(999)).unwrap();
         store.put(kind::SETTING, HUD_ENABLED, json!(false)).unwrap();
         store.put(kind::SETTING, HUD_STYLE, json!("analog")).unwrap();
+        assert!(!Prefs::load(&store).input_enabled, "hotkeys and gestures start off");
+        store.local_set(INPUT_ENABLED, &json!(true)).unwrap();
+        store.local_set(INPUT_GESTURES, &json!("rmb")).unwrap();
         let p = Prefs::load(&store);
         assert_eq!(p.omnibar_hotkey, "Ctrl+Alt+K");
         assert_eq!(p.hud_style, HudStyle::Analog);
+        assert!(p.input_enabled && !p.input_hyper);
+        assert_eq!(p.input_gestures, GestureMode::Rmb);
         assert_eq!((p.pomodoro.focus_min, p.pomodoro.short_break_min), (50, 5));
         assert!(!p.hud_enabled);
     }

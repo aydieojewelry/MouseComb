@@ -465,6 +465,50 @@ pub fn key_name(vk: u32) -> Option<&'static str> {
     })
 }
 
+/// Keys that can be sent but are never Hyper keys: name and virtual-key code.
+const SEND_ONLY: &[(&str, u32)] = &[
+    ("Escape", 0x1B),
+    ("Pause", 0x13),
+    ("PrintScreen", 0x2C),
+    ("ScrollLock", 0x91),
+    ("AudioVolumeMute", 0xAD),
+    ("AudioVolumeDown", 0xAE),
+    ("AudioVolumeUp", 0xAF),
+    ("MediaTrackNext", 0xB0),
+    ("MediaTrackPrevious", 0xB1),
+    ("MediaPlayPause", 0xB3),
+];
+
+/// The virtual-key code for a key or modifier name written the way bindings write them
+/// (`Ctrl`, `K`, `ArrowLeft`, `MediaPlayPause`), the reverse of [`key_name`].
+pub fn vk_of(name: &str) -> Option<u32> {
+    match name {
+        "Shift" => return Some(0x10),
+        "Ctrl" => return Some(0x11),
+        "Alt" => return Some(0x12),
+        "Super" => return Some(0x5B),
+        _ => {}
+    }
+    if let Some(n) = name.strip_prefix("Numpad").and_then(|n| n.parse::<u32>().ok())
+        && n <= 9
+    {
+        return Some(0x60 + n);
+    }
+    if let Some((_, vk)) = SEND_ONLY.iter().find(|(n, _)| *n == name) {
+        return Some(*vk);
+    }
+    (0x08..=0xDE).find(|vk| key_name(*vk) == Some(name))
+}
+
+/// The modifier codes and key code for a shortcut such as `Ctrl+Shift+T`, or `None` if it isn't one.
+pub fn combo_vks(shortcut: &str) -> Option<(Vec<u32>, u32)> {
+    let normal = crate::bindings::normalize_shortcut(shortcut)?;
+    let mut parts: Vec<&str> = normal.split('+').collect();
+    let key = vk_of(parts.pop()?)?;
+    let modifiers = parts.into_iter().map(vk_of).collect::<Option<Vec<_>>>()?;
+    Some((modifiers, key))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -657,6 +701,26 @@ mod tests {
         e.reset();
         let (v, out) = run(&mut e, &[(RawEvent::KeyDown(K), 10), (RawEvent::KeyUp(K), 20)]);
         assert_eq!((v, out), (vec![Verdict::Pass, Verdict::Pass], vec![]));
+    }
+
+    #[test]
+    fn names_map_back_to_virtual_keys() {
+        for vk in [0x4B, 0x31, 0x7B, 0x20, 0xBF, 0x25, 0x2E] {
+            assert_eq!(vk_of(key_name(vk).unwrap()), Some(vk));
+        }
+        assert_eq!(vk_of("Ctrl"), Some(0x11));
+        assert_eq!(vk_of("Numpad3"), Some(0x63));
+        assert_eq!(vk_of("MediaPlayPause"), Some(0xB3));
+        assert_eq!(vk_of("Escape"), Some(0x1B));
+        assert_eq!(vk_of("Banana"), None);
+    }
+
+    #[test]
+    fn a_shortcut_becomes_modifier_and_key_codes() {
+        assert_eq!(combo_vks("ctrl+shift+t"), Some((vec![0x11, 0x10], 0x54)));
+        assert_eq!(combo_vks("MediaPlayPause"), Some((vec![], 0xB3)));
+        assert_eq!(combo_vks("Ctrl+Super+ArrowLeft"), Some((vec![0x11, 0x5B], 0x25)));
+        assert_eq!(combo_vks("Ctrl+"), None);
     }
 
     #[test]

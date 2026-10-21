@@ -11,6 +11,7 @@ import type {
   Command,
   CommandError,
   HotkeyStatus,
+  InputStatus,
   Item,
   Pomodoro,
   SyncStatus,
@@ -49,6 +50,10 @@ const CATALOG: Command[] = [
   cmd("mc.settings.open", "mc.settings.open", {}, "Open Settings", "MouseComb", ["preferences", "options"], "mouse_comb"),
   cmd("mc.settings.open:general", "mc.settings.open", { page: "general" }, "General settings", "MouseComb settings", ["hotkey", "clock"], "mouse_comb"),
   cmd("mc.settings.open:pomodoro", "mc.settings.open", { page: "pomodoro" }, "Pomodoro settings", "MouseComb settings", ["timer", "focus"], "mouse_comb"),
+  cmd("mc.settings.open:bindings", "mc.settings.open", { page: "bindings" }, "Bindings, hotkeys and gestures", "MouseComb settings", ["shortcut", "hotkey"], "mouse_comb"),
+  cmd("mc.input.toggle", "mc.input.toggle", null, "Turn hotkeys and gestures on or off", "MouseComb", ["input", "panic"], "mouse_comb"),
+  cmd("core.os.audio.volume_up", "core.os.audio.volume_up", null, "Volume up", "Windows", ["louder"], "windows"),
+  cmd("core.os.media.play_pause", "core.os.media.play_pause", null, "Play or pause media", "Windows", ["music"], "windows"),
   cmd("mc.settings.open:snippets", "mc.settings.open", { page: "snippets" }, "Snippets", "MouseComb settings", ["text"], "mouse_comb"),
   cmd("mc.settings.open:account", "mc.settings.open", { page: "account" }, "Account & sync", "MouseComb settings", ["sign in", "login"], "mouse_comb"),
   cmd("mc.settings.open:about", "mc.settings.open", { page: "about" }, "About MouseComb", "MouseComb settings", ["version"], "mouse_comb"),
@@ -109,6 +114,12 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
     checked_at: Date.now() - 3_600_000,
     message: null,
   };
+  const inputStatus = (): InputStatus => ({
+    hooks_supported: false,
+    hooks_running: false,
+    panic_key: "Ctrl+Alt+Pause",
+    issues: [],
+  });
   const hotkey: HotkeyStatus = { hotkey: "Alt+Space", registered: true, message: null };
   const apps = options.apps ?? EXAMPLE_APPS;
 
@@ -177,6 +188,12 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
         return { message: "Copied" };
       case "mc.update.check":
         return { message: "MouseComb is up to date" };
+      case "mc.input.toggle": {
+        const on = local.get("input.enabled") !== true;
+        local.set("input.enabled", on);
+        changed("local_setting");
+        return { message: on ? "Hotkeys are on" : "Hotkeys are off" };
+      }
       default:
         if (!CATALOG.some((c) => c.action === action) && !["core.os.apps.launch", "core.os.shell.open_url"].includes(action)) {
           return fail("validation", `There's no action called ${action}.`);
@@ -263,6 +280,8 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
           return update;
         case "hotkey_status_get":
           return hotkey;
+        case "input_status_get":
+          return inputStatus();
         case "omnibar_hide":
           return null;
         case "action_run":

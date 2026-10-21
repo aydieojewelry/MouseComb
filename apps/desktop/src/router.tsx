@@ -21,6 +21,7 @@ const page = {
   welcome: lazyRouteComponent(() => import("./pages/WelcomePage"), "WelcomePage"),
   general: lazyRouteComponent(() => import("./pages/GeneralPage"), "GeneralPage"),
   pomodoro: lazyRouteComponent(() => import("./pages/PomodoroPage"), "PomodoroPage"),
+  bindings: lazyRouteComponent(() => import("./pages/BindingsPage"), "BindingsPage"),
   snippets: lazyRouteComponent(() => import("./pages/SnippetsPage"), "SnippetsPage"),
   account: lazyRouteComponent(() => import("./pages/AccountPage"), "AccountPage"),
   about: lazyRouteComponent(() => import("./pages/AboutPage"), "AboutPage"),
@@ -51,6 +52,7 @@ const settingsRoute = createRoute({ getParentRoute: () => rootRoute, id: "_setti
 
 const generalRoute = createRoute({ getParentRoute: () => settingsRoute, path: "general", component: page.general });
 const pomodoroRoute = createRoute({ getParentRoute: () => settingsRoute, path: "pomodoro", component: page.pomodoro });
+const bindingsRoute = createRoute({ getParentRoute: () => settingsRoute, path: "bindings", component: page.bindings });
 
 export const snippetsSearch = z.object({
   /** Search text. */
@@ -74,7 +76,7 @@ const routeTree = rootRoute.addChildren([
   welcomeRoute,
   omnibarRoute,
   hudRoute,
-  settingsRoute.addChildren([generalRoute, pomodoroRoute, snippetsRoute, accountRoute, aboutRoute]),
+  settingsRoute.addChildren([generalRoute, pomodoroRoute, bindingsRoute, snippetsRoute, accountRoute, aboutRoute]),
 ]);
 
 // Hash history: every window loads index.html, whatever the route.
@@ -87,7 +89,7 @@ export const router = createRouter({
 });
 
 /** Settings pages Rust may ask the main window to show (`mc.settings.open`). */
-export const SETTINGS_PAGES = ["/general", "/pomodoro", "/snippets", "/account", "/about"] as const;
+export const SETTINGS_PAGES = ["/general", "/pomodoro", "/bindings", "/snippets", "/account", "/about"] as const;
 export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 
 export function isSettingsPage(path: string): path is SettingsPage {

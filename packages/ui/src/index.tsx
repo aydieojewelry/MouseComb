@@ -293,12 +293,16 @@ const MODIFIER_CODES = new Set([
 
 /**
  * A key combo as the hotkey service spells it (`Ctrl+Shift+K`, `Alt+Space`),
- * or null while only modifiers are down. Needs a modifier unless it's F1–F24.
+ * or null while only modifiers are down. Needs a modifier unless it's F1–F24
+ * (or `allowBare`, for keys used after the Hyper-Key).
  */
-export function shortcutFromEvent(e: Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">): string | null {
+export function shortcutFromEvent(
+  e: Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">,
+  allowBare = false,
+): string | null {
   if (MODIFIER_CODES.has(e.code) || !e.code) return null;
   const isFunctionKey = /^F([1-9]|1[0-9]|2[0-4])$/.test(e.code);
-  if (!(e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) && !isFunctionKey) return null;
+  if (!allowBare && !(e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) && !isFunctionKey) return null;
   const key = e.code.replace(/^Key([A-Z])$/, "$1").replace(/^Digit(\d)$/, "$1");
   return [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Super", key]
     .filter(Boolean)
@@ -324,7 +328,7 @@ export function ShortcutKeys(props: { shortcut: string; separator?: ReactNode; s
  * Record a shortcut on a button: click it, press keys. Esc cancels; leaving
  * the button stops recording. Spread `buttonProps` on the button.
  */
-export function useShortcutRecorder(onChange: (shortcut: string) => void) {
+export function useShortcutRecorder(onChange: (shortcut: string) => void, allowBare = false) {
   const [recording, setRecording] = useState(false);
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (!recording) return;
@@ -334,7 +338,7 @@ export function useShortcutRecorder(onChange: (shortcut: string) => void) {
       setRecording(false);
       return;
     }
-    const shortcut = shortcutFromEvent(e);
+    const shortcut = shortcutFromEvent(e, allowBare);
     if (shortcut) {
       setRecording(false);
       onChange(shortcut);
@@ -379,5 +383,66 @@ export function HotkeyField(props: {
         {recording ? "Press keys…" : <ShortcutKeys shortcut={props.value} />}
       </button>
     </div>
+  );
+}
+
+/** A button that shows a shortcut and records a new one when clicked. */
+export function ShortcutButton(props: {
+  label: string;
+  value: string;
+  onChange: (shortcut: string) => void;
+  /** Accept a single key without a modifier (the key pressed with the Hyper-Key). */
+  allowBare?: boolean;
+  empty?: string;
+  invalid?: boolean;
+}) {
+  const { recording, buttonProps } = useShortcutRecorder(props.onChange, props.allowBare);
+  return (
+    <button
+      type="button"
+      {...buttonProps}
+      aria-label={recording ? "Press the keys, or Escape to cancel" : `${props.label}: ${props.value || "not set"}. Click to record.`}
+      className={cx(
+        "flex h-10 w-full items-center justify-center gap-1 rounded-lg border px-3 text-sm transition-colors",
+        recording ? "border-accent bg-accent/10 text-accent" : "border-line bg-raised hover:border-muted",
+        props.invalid && !recording && "border-danger",
+      )}
+    >
+      {recording ? (
+        "Press keys…"
+      ) : props.value ? (
+        <ShortcutKeys shortcut={props.value} />
+      ) : (
+        <span className="text-muted">{props.empty ?? "Click, then press the keys"}</span>
+      )}
+    </button>
+  );
+}
+
+/** A native drop-down: long lists stay keyboard- and screen-reader-friendly for free. */
+export function SelectField(props: {
+  label: string;
+  value: string;
+  groups: readonly { label: string; options: readonly { value: string; label: string }[] }[];
+  onChange: (value: string) => void;
+  error?: string;
+  className?: string;
+}) {
+  return (
+    <Field.Root invalid={Boolean(props.error)} className={cx("flex flex-col gap-1.5", props.className)}>
+      <Field.Label className="text-xs font-medium text-muted">{props.label}</Field.Label>
+      <Field.Select className={inputClass} value={props.value} onChange={(e) => props.onChange(e.target.value)}>
+        {props.groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </Field.Select>
+      {props.error && <Field.ErrorText className="text-xs text-danger">{props.error}</Field.ErrorText>}
+    </Field.Root>
   );
 }

@@ -198,6 +198,12 @@ pub fn hotkey_status_get(state: State<'_, AppState>) -> HotkeyStatus {
 
 #[tauri::command]
 #[specta::specta]
+pub fn input_status_get(app: AppHandle) -> crate::engine::InputStatus {
+    crate::engine::status(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn omnibar_hide(app: AppHandle) {
     overlays::hide_omnibar(&app);
 }

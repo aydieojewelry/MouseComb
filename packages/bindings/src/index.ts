@@ -43,6 +43,7 @@ export const commands = {
 	pomodoroGet: () => __TAURI_INVOKE<Pomodoro>("pomodoro_get"),
 	updateStatusGet: () => __TAURI_INVOKE<UpdateStatus>("update_status_get"),
 	hotkeyStatusGet: () => __TAURI_INVOKE<HotkeyStatus>("hotkey_status_get"),
+	inputStatusGet: () => __TAURI_INVOKE<InputStatus>("input_status_get"),
 	omnibarHide: () => __TAURI_INVOKE<void>("omnibar_hide"),
 	/**
 	 *  Run an action. The OmniBar closes itself after a command from its list
@@ -58,6 +59,7 @@ export const events = {
 	hotkeyStatus: makeEvent<HotkeyStatus>("hotkey-status"),
 	hudFade: makeEvent<HudFade>("hud-fade"),
 	hudFlash: makeEvent<HudFlash>("hud-flash"),
+	inputStatus: makeEvent<InputStatus>("input-status"),
 	itemsChanged: makeEvent<ItemsChanged>("items-changed"),
 	navigateRequested: makeEvent<NavigateRequested>("navigate-requested"),
 	omniBarOpened: makeEvent<OmniBarOpened>("omni-bar-opened"),
@@ -97,6 +99,12 @@ export type AppInfo = {
 
 /**  The app list changed; refetch it. */
 export type AppsChanged = null;
+
+/**  A binding that can't work, and why. */
+export type BindingIssue = {
+	trigger: string,
+	message: string,
+};
 
 /**  One OmniBar entry: an action with fixed arguments and the words that find it. */
 export type Command = {
@@ -142,6 +150,15 @@ export type HudFade = {
 /**  A short message for the HUD to show, e.g. "Copied". */
 export type HudFlash = {
 	text: string,
+};
+
+/**  What the Bindings and General pages show about hotkeys, gestures and the Hyper-Key. */
+export type InputStatus = {
+	/**  Hyper-Key and gestures need Windows; hotkeys work everywhere. */
+	hooks_supported: boolean,
+	hooks_running: boolean,
+	panic_key: string,
+	issues: BindingIssue[],
 };
 
 /**  One synced record. */

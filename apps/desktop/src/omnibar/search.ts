@@ -97,6 +97,11 @@ function fromSnippet(s: Snippet): Result {
   return { key: `snippet:${s.id}`, kind: "snippet", title: s.title, hint: `Snippet · ${preview}`, action: "ext.mc.snippets.copy", args: { id: s.id }, confirm: false };
 }
 
+/** The same snippet, typed into the program that had focus instead of copied (Windows). */
+function fromSnippetTyping(s: Snippet): Result {
+  return { key: `snippet-type:${s.id}`, kind: "snippet", title: `Type “${s.title}”`, hint: "Types it into the app you were in", action: "ext.mc.snippets.type", args: { id: s.id }, confirm: false };
+}
+
 /** Everything to show for `query`, best first. */
 export function search(query: string, src: Sources, limit = 60): Result[] {
   const q = query.trim();
@@ -105,7 +110,10 @@ export function search(query: string, src: Sources, limit = 60): Result[] {
     // The catalog title stays searchable when a live title replaces it.
     ...src.commands.map((c) => ({ result: fromCommand(c, src.pomodoroTitle), words: [...c.keywords, c.title] })),
     ...src.apps.map((a) => ({ result: fromApp(a), words: [] })),
-    ...src.snippets.map((s) => ({ result: fromSnippet(s), words: s.tags })),
+    ...src.snippets.flatMap((s) => [
+      { result: fromSnippet(s), words: s.tags },
+      { result: fromSnippetTyping(s), words: [s.title, ...s.tags] },
+    ]),
   ];
 
   if (!q) {

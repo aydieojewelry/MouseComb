@@ -3,6 +3,7 @@ import {
   events,
   type Account,
   type HotkeyStatus,
+  type InputStatus,
   type Pomodoro,
   type SyncStatus,
   type UpdateStatus,
@@ -19,6 +20,7 @@ export const queryKeys = {
   pomodoro: ["pomodoro"] as const,
   updateStatus: ["update-status"] as const,
   hotkeyStatus: ["hotkey-status"] as const,
+  inputStatus: ["input-status"] as const,
   commands: ["commands"] as const,
   apps: ["apps"] as const,
   localSettings: ["local-setting"] as const,
@@ -36,6 +38,7 @@ export function connectBackendEvents(client: QueryClient): () => void {
     events.pomodoroChanged.listen((e) => client.setQueryData<Pomodoro>(queryKeys.pomodoro, e.payload)),
     events.updateStatus.listen((e) => client.setQueryData<UpdateStatus>(queryKeys.updateStatus, e.payload)),
     events.hotkeyStatus.listen((e) => client.setQueryData<HotkeyStatus>(queryKeys.hotkeyStatus, e.payload)),
+    events.inputStatus.listen((e) => client.setQueryData<InputStatus>(queryKeys.inputStatus, e.payload)),
     events.appsChanged.listen(() => void client.invalidateQueries({ queryKey: queryKeys.apps })),
     events.itemsChanged.listen((e) => {
       if (e.payload.kind === "local_setting") void client.invalidateQueries({ queryKey: queryKeys.localSettings });
