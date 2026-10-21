@@ -6,6 +6,8 @@
 //! This crate makes no OS calls (APP_SPEC §3).
 
 pub mod actions;
+pub mod bindings;
+pub mod input;
 pub mod pomodoro;
 
 use rand::RngExt;
@@ -21,6 +23,10 @@ pub mod kind {
     pub const EXTENSION: &str = "ext";
     /// A finished Pomodoro focus session (FEAT-002 stats).
     pub const POMODORO: &str = "pomodoro";
+    /// A trigger connected to an action (FEAT-014).
+    pub const BINDING: &str = "binding";
+    /// A user's own DuckDuckGo-style bang (`!jira`).
+    pub const BANG: &str = "bang";
 }
 
 /// Length and alphabet of record ids, matching PocketBase's default id field.
