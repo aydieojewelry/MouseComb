@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the MouseComb windows: Settings, OmniBar and HUD.",
+  "windows": ["main", "omnibar", "hud"],
+  "permissions": [
+    "core:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "opener:allow-open-url",
+    "log:default"
+  ]
+}

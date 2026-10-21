@@ -1,0 +1,53 @@
+# One-off clean-up after the 0.1.0+2 hand-off (CR/CR.md, Versioning): keeps the old
+# unrelated branch as a tag, then deletes it and any other branch already merged
+# into main. Run by hand: Actions → Tidy branches → Run workflow. Leave "really"
+# on "no" first to see what it would do.
+name: Tidy branches
+
+on:
+  workflow_dispatch:
+    inputs:
+      really:
+        description: 'Type "yes" to delete; anything else only lists what would be deleted'
+        required: false
+        default: "no"
+
+permissions:
+  contents: write
+
+jobs:
+  tidy:
+    name: Archive and delete merged branches
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Archive the old app-builder branch as a tag
+        env:
+          REALLY: ${{ inputs.really }}
+        run: |
+          set -euo pipefail
+          old=ccr-9359ffeb-6k6r22
+          if git ls-remote --exit-code --heads origin "$old" >/dev/null; then
+            echo "Branch $old exists (tip $(git rev-parse --short "origin/$old"))."
+            if [ "$REALLY" = "yes" ]; then
+              git tag -f archive/ccr-app-builder "origin/$old"
+              git push origin refs/tags/archive/ccr-app-builder
+              git push origin --delete "$old"
+            fi
+          else
+            echo "No $old branch (already tidied)."
+          fi
+      - name: Delete branches already merged into main
+        env:
+          REALLY: ${{ inputs.really }}
+        run: |
+          set -euo pipefail
+          git fetch --prune origin
+          for b in $(git branch -r --merged origin/main | sed 's#^ *origin/##' | grep -v -e '^main$' -e '^HEAD'); do
+            echo "Merged into main: $b"
+            if [ "$REALLY" = "yes" ]; then git push origin --delete "$b"; fi
+          done
+          echo "Branches now:"
+          git branch -r

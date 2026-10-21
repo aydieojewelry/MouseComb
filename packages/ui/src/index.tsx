@@ -1,0 +1,448 @@
+/**
+ * MouseComb components: Ark UI (Zag.js state machines) styled with the
+ * tokens in styles.css. Apps use these instead of raw Ark parts.
+ */
+import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
+import { Field } from "@ark-ui/react/field";
+import { Portal } from "@ark-ui/react/portal";
+import { Slider as ArkSlider } from "@ark-ui/react/slider";
+import { Switch as ArkSwitch } from "@ark-ui/react/switch";
+import { Toast, Toaster as ArkToaster, createToaster } from "@ark-ui/react/toast";
+import { forwardRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+
+import { cx } from "./cx";
+
+export * from "./icons";
+export { cx } from "./cx";
+export { CommandPalette, type PaletteItem } from "./palette";
+export { ChoiceGroup, RoundButton, Stepper, type Choice } from "./controls";
+export { TimerDial, dialMarks } from "./dial";
+export {
+  ClockFace,
+  clockParts,
+  DIAL_FACES,
+  DIGITAL_FACES,
+  FACE_NAMES,
+  faceSize,
+  handAngles,
+  type ClockLook,
+  type DialFace,
+  type DigitalFace,
+} from "./clock";
+
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+
+const buttonStyles: Record<ButtonVariant, string> = {
+  primary: "bg-accent text-accent-ink hover:bg-accent-hover font-semibold",
+  secondary: "bg-raised text-fg border border-line hover:border-muted",
+  ghost: "text-muted hover:text-fg hover:bg-raised",
+  danger: "bg-raised text-danger border border-line hover:border-danger",
+};
+
+export const Button = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; busy?: boolean }
+>(function Button({ variant = "secondary", busy, className, children, disabled, ...rest }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      className={cx(
+        "inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm transition-colors",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        buttonStyles[variant],
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+});
+
+const inputClass =
+  "w-full rounded-lg border border-line bg-raised px-3 py-2 text-sm text-fg placeholder:text-muted " +
+  "outline-none transition-colors focus:border-accent data-[invalid]:border-danger";
+
+type FieldProps = {
+  label: string;
+  helper?: ReactNode;
+  error?: string;
+  className?: string;
+};
+
+export function TextField({
+  label,
+  helper,
+  error,
+  className,
+  ...input
+}: FieldProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, "className">) {
+  return (
+    <Field.Root invalid={Boolean(error)} className={cx("flex flex-col gap-1.5", className)}>
+      <Field.Label className="text-xs font-medium text-muted">{label}</Field.Label>
+      <Field.Input className={inputClass} {...input} />
+      {helper && !error && <Field.HelperText className="text-xs text-muted">{helper}</Field.HelperText>}
+      {error && <Field.ErrorText className="text-xs text-danger">{error}</Field.ErrorText>}
+    </Field.Root>
+  );
+}
+
+export function TextArea({
+  label,
+  helper,
+  error,
+  className,
+  ...input
+}: FieldProps & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "className">) {
+  return (
+    <Field.Root invalid={Boolean(error)} className={cx("flex flex-col gap-1.5", className)}>
+      <Field.Label className="text-xs font-medium text-muted">{label}</Field.Label>
+      <Field.Textarea className={cx(inputClass, "min-h-32 resize-y font-mono")} {...input} />
+      {helper && !error && <Field.HelperText className="text-xs text-muted">{helper}</Field.HelperText>}
+      {error && <Field.ErrorText className="text-xs text-danger">{error}</Field.ErrorText>}
+    </Field.Root>
+  );
+}
+
+export function Switch(props: {
+  label: ReactNode;
+  /** Only screen readers get the label (a title next to the switch already says it). */
+  hideLabel?: boolean;
+  description?: ReactNode;
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <ArkSwitch.Root
+      checked={props.checked}
+      disabled={props.disabled}
+      onCheckedChange={(e) => props.onCheckedChange(e.checked)}
+      className="flex cursor-pointer items-center justify-between gap-6 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+    >
+      <span className={props.hideLabel ? "sr-only" : "flex flex-col gap-0.5"}>
+        <ArkSwitch.Label className="text-sm text-fg">{props.label}</ArkSwitch.Label>
+        {props.description && <span className="text-xs text-muted">{props.description}</span>}
+      </span>
+      <ArkSwitch.Control className="relative h-6 w-11 shrink-0 rounded-full border border-line bg-raised transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent">
+        <ArkSwitch.Thumb className="absolute left-0.5 top-0.5 size-4.5 rounded-full bg-muted transition-transform data-[state=checked]:translate-x-5 data-[state=checked]:bg-accent-ink" />
+      </ArkSwitch.Control>
+      <ArkSwitch.HiddenInput />
+    </ArkSwitch.Root>
+  );
+}
+
+export function Slider(props: {
+  label: ReactNode;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onValueChange: (value: number) => void;
+}) {
+  return (
+    <ArkSlider.Root
+      value={[props.value]}
+      min={props.min}
+      max={props.max}
+      step={props.step ?? 1}
+      onValueChange={(e) => props.onValueChange(e.value[0] ?? props.value)}
+      className="flex flex-col gap-2"
+    >
+      <div className="flex items-baseline justify-between">
+        <ArkSlider.Label className="text-sm text-fg">{props.label}</ArkSlider.Label>
+        <span className="font-mono text-xs tabular-nums text-muted">
+          {props.value}
+          {props.unit}
+        </span>
+      </div>
+      <ArkSlider.Control className="relative flex h-5 items-center">
+        <ArkSlider.Track className="h-1.5 w-full rounded-full bg-raised">
+          <ArkSlider.Range className="h-full rounded-full bg-accent" />
+        </ArkSlider.Track>
+        <ArkSlider.Thumb
+          index={0}
+          className="size-4 rounded-full border-2 border-accent bg-idle outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <ArkSlider.HiddenInput />
+        </ArkSlider.Thumb>
+      </ArkSlider.Control>
+    </ArkSlider.Root>
+  );
+}
+
+export function Dialog(props: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: ReactNode;
+  children?: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <ArkDialog.Root open={props.open} onOpenChange={(e) => props.onOpenChange(e.open)} lazyMount unmountOnExit>
+      <Portal>
+        <ArkDialog.Backdrop className="fixed inset-0 bg-idle/70" />
+        <ArkDialog.Positioner className="fixed inset-0 flex items-center justify-center p-4">
+          <ArkDialog.Content className="flex w-full max-w-md flex-col gap-4 rounded-modal border border-line bg-surface p-6 shadow-2xl">
+            <div className="flex flex-col gap-1">
+              <ArkDialog.Title className="font-display text-lg font-semibold">{props.title}</ArkDialog.Title>
+              {props.description && (
+                <ArkDialog.Description className="text-sm text-muted">{props.description}</ArkDialog.Description>
+              )}
+            </div>
+            {props.children}
+            {props.footer && <div className="flex justify-end gap-2">{props.footer}</div>}
+          </ArkDialog.Content>
+        </ArkDialog.Positioner>
+      </Portal>
+    </ArkDialog.Root>
+  );
+}
+
+/** One toaster for the whole window. */
+export const toaster = createToaster({ placement: "bottom-end", gap: 8, max: 3 });
+
+export function Toaster() {
+  return (
+    <ArkToaster toaster={toaster}>
+      {(toast) => (
+        <Toast.Root
+          className={cx(
+            "w-80 rounded-lg border bg-surface px-4 py-3 shadow-xl",
+            toast.type === "error" ? "border-danger" : "border-line",
+          )}
+        >
+          <Toast.Title className="text-sm font-semibold">{toast.title}</Toast.Title>
+          {toast.description && <Toast.Description className="text-xs text-muted">{toast.description}</Toast.Description>}
+        </Toast.Root>
+      )}
+    </ArkToaster>
+  );
+}
+
+/** A group of settings rows, with a title or (for a card without one) a `label` for screen readers. */
+export function Section(props: {
+  title?: string;
+  label?: string;
+  description?: ReactNode;
+  children: ReactNode;
+  aside?: ReactNode;
+}) {
+  return (
+    <section
+      aria-label={props.title ? undefined : props.label}
+      className="flex flex-col gap-4 rounded-modal border border-line bg-card p-5"
+    >
+      {(props.title || props.aside) && (
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            {props.title && <h2 className="font-display text-base font-semibold">{props.title}</h2>}
+            {props.description && <p className="max-w-prose text-sm text-muted">{props.description}</p>}
+          </div>
+          {props.aside}
+        </header>
+      )}
+      {props.children}
+    </section>
+  );
+}
+
+const dotColor = { ok: "bg-ok", warn: "bg-warn", danger: "bg-danger", muted: "bg-muted", accent: "bg-accent" } as const;
+
+export function StatusDot(props: { tone: keyof typeof dotColor; pulse?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cx("inline-block size-2 shrink-0 rounded-full", dotColor[props.tone], props.pulse && "animate-pulse")}
+    />
+  );
+}
+
+export function Kbd(props: { children: ReactNode; size?: "sm" | "lg" }) {
+  return (
+    <kbd
+      className={cx(
+        "border border-line font-mono text-fg",
+        props.size === "lg"
+          ? "flex h-13 min-w-14 items-center justify-center rounded-[10px] border-b-4 bg-button px-3.5 text-base font-semibold"
+          : "rounded border-b-2 bg-raised px-1.5 py-0.5 text-xs",
+      )}
+    >
+      {props.children}
+    </kbd>
+  );
+}
+
+const MODIFIER_CODES = new Set([
+  "ControlLeft",
+  "ControlRight",
+  "AltLeft",
+  "AltRight",
+  "ShiftLeft",
+  "ShiftRight",
+  "MetaLeft",
+  "MetaRight",
+  "OSLeft",
+  "OSRight",
+]);
+
+/**
+ * A key combo as the hotkey service spells it (`Ctrl+Shift+K`, `Alt+Space`),
+ * or null while only modifiers are down. Needs a modifier unless it's F1–F24
+ * (or `allowBare`, for keys used after the Hyper-Key).
+ */
+export function shortcutFromEvent(
+  e: Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">,
+  allowBare = false,
+): string | null {
+  if (MODIFIER_CODES.has(e.code) || !e.code) return null;
+  const isFunctionKey = /^F([1-9]|1[0-9]|2[0-4])$/.test(e.code);
+  if (!allowBare && !(e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) && !isFunctionKey) return null;
+  const key = e.code.replace(/^Key([A-Z])$/, "$1").replace(/^Digit(\d)$/, "$1");
+  return [e.ctrlKey && "Ctrl", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Super", key]
+    .filter(Boolean)
+    .join("+");
+}
+
+/** A shortcut such as `Ctrl+Shift+K` as key caps (`Super` shows as Win). */
+export function ShortcutKeys(props: { shortcut: string; separator?: ReactNode; size?: "sm" | "lg" }) {
+  const keys = props.shortcut.split("+").map((k) => (k === "Super" ? "Win" : k));
+  return (
+    <>
+      {keys.map((k, i) => (
+        <span key={k} className={props.size === "lg" ? "flex items-center gap-2" : undefined}>
+          {i > 0 && props.separator}
+          <Kbd size={props.size}>{k}</Kbd>
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Record a shortcut on a button: click it, press keys. Esc cancels; leaving
+ * the button stops recording. Spread `buttonProps` on the button.
+ */
+export function useShortcutRecorder(onChange: (shortcut: string) => void, allowBare = false) {
+  const [recording, setRecording] = useState(false);
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (!recording) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.code === "Escape" && !(e.ctrlKey || e.altKey || e.shiftKey || e.metaKey)) {
+      setRecording(false);
+      return;
+    }
+    const shortcut = shortcutFromEvent(e, allowBare);
+    if (shortcut) {
+      setRecording(false);
+      onChange(shortcut);
+    }
+  };
+  return {
+    recording,
+    buttonProps: { onClick: () => setRecording(!recording), onKeyDown, onBlur: () => setRecording(false) },
+  };
+}
+
+/** Shows a shortcut as key caps; click, then press keys to record a new one. */
+export function HotkeyField(props: {
+  label: string;
+  value: string;
+  description?: ReactNode;
+  error?: string | null;
+  onChange: (shortcut: string) => void;
+}) {
+  const { recording, buttonProps } = useShortcutRecorder(props.onChange);
+  return (
+    <div className="flex items-center justify-between gap-6">
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm text-fg">{props.label}</span>
+        {props.description && <span className="text-xs text-muted">{props.description}</span>}
+        {props.error && (
+          <span role="alert" className="text-xs text-danger">
+            {props.error}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        {...buttonProps}
+        aria-label={recording ? "Press the new shortcut, or Escape to cancel" : `${props.label}: ${props.value}. Click to change.`}
+        className={cx(
+          "flex h-9 min-w-36 shrink-0 items-center justify-center gap-1 rounded-lg border px-3 text-sm transition-colors",
+          recording ? "border-accent bg-accent/10 text-accent" : "border-line bg-raised hover:border-muted",
+          props.error && !recording && "border-danger",
+        )}
+      >
+        {recording ? "Press keys…" : <ShortcutKeys shortcut={props.value} />}
+      </button>
+    </div>
+  );
+}
+
+/** A button that shows a shortcut and records a new one when clicked. */
+export function ShortcutButton(props: {
+  label: string;
+  value: string;
+  onChange: (shortcut: string) => void;
+  /** Accept a single key without a modifier (the key pressed with the Hyper-Key). */
+  allowBare?: boolean;
+  empty?: string;
+  invalid?: boolean;
+}) {
+  const { recording, buttonProps } = useShortcutRecorder(props.onChange, props.allowBare);
+  return (
+    <button
+      type="button"
+      {...buttonProps}
+      aria-label={recording ? "Press the keys, or Escape to cancel" : `${props.label}: ${props.value || "not set"}. Click to record.`}
+      className={cx(
+        "flex h-10 w-full items-center justify-center gap-1 rounded-lg border px-3 text-sm transition-colors",
+        recording ? "border-accent bg-accent/10 text-accent" : "border-line bg-raised hover:border-muted",
+        props.invalid && !recording && "border-danger",
+      )}
+    >
+      {recording ? (
+        "Press keys…"
+      ) : props.value ? (
+        <ShortcutKeys shortcut={props.value} />
+      ) : (
+        <span className="text-muted">{props.empty ?? "Click, then press the keys"}</span>
+      )}
+    </button>
+  );
+}
+
+/** A native drop-down: long lists stay keyboard- and screen-reader-friendly for free. */
+export function SelectField(props: {
+  label: string;
+  value: string;
+  groups: readonly { label: string; options: readonly { value: string; label: string }[] }[];
+  onChange: (value: string) => void;
+  error?: string;
+  className?: string;
+}) {
+  return (
+    <Field.Root invalid={Boolean(props.error)} className={cx("flex flex-col gap-1.5", props.className)}>
+      <Field.Label className="text-xs font-medium text-muted">{props.label}</Field.Label>
+      <Field.Select className={inputClass} value={props.value} onChange={(e) => props.onChange(e.target.value)}>
+        {props.groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </Field.Select>
+      {props.error && <Field.ErrorText className="text-xs text-danger">{props.error}</Field.ErrorText>}
+    </Field.Root>
+  );
+}

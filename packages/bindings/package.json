@@ -1,0 +1,13 @@
+{
+  "name": "@mousecomb/bindings",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed client for the MouseComb Rust commands and events. Generated: run `pnpm bindings` at the repo root.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12"
+  }
+}

@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/desktop/src-tauri"]
+
+[workspace.package]
+edition = "2024"
+license = "LicenseRef-MouseComb-Proprietary"
+publish = false
+
+[workspace.dependencies]
+mc-core = { path = "crates/mc-core" }
+mc-store = { path = "crates/mc-store" }
+mc-sync = { path = "crates/mc-sync" }
+mc-win = { path = "crates/mc-win" }
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+rand = "0.10.3"
+sha2 = "0.11.1"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "http2", "json", "query"] }
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread", "sync", "time"] }
+specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
+specta-typescript = "=0.0.12"
+tempfile = "3.27.0"
+log = "0.4.34"

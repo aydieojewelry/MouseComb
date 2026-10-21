@@ -1,0 +1,19 @@
+# Copy to /etc/systemd/system/, edit User, WorkingDirectory and the domain, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mousecomb-server
+[Unit]
+Description=MouseComb backend (PocketBase)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mousecomb
+WorkingDirectory=/home/mousecomb/mousecomb
+ExecStart=/home/mousecomb/mousecomb/mousecomb-server serve api.yourdomain.com
+Restart=always
+RestartSec=5
+LimitNOFILE=4096
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

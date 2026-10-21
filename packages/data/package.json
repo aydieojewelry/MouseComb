@@ -1,0 +1,30 @@
+{
+  "name": "@mousecomb/data",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Live app data for React: TanStack DB collections and Query hooks over the Rust commands.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/mockBackend.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mousecomb/bindings": "workspace:*",
+    "@tanstack/db": "^0.11.3",
+    "@tanstack/react-db": "^0.5.3",
+    "@tanstack/react-query": "^5.104.1",
+    "@tauri-apps/api": "^2.12.1",
+    "react": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "jsdom": "^30.1.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "mc-core"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "MouseComb data model and sync rules. No OS calls: shared by desktop and mobile."
+
+[features]
+specta = ["dep:specta", "dep:specta-typescript"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+rand.workspace = true
+sha2.workspace = true
+specta = { workspace = true, optional = true }
+specta-typescript = { workspace = true, optional = true }

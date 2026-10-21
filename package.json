@@ -1,0 +1,16 @@
+{
+  "name": "mousecomb",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @mousecomb/desktop tauri dev",
+    "build": "pnpm --filter @mousecomb/desktop tauri build",
+    "bindings": "cargo run -p mousecomb-desktop --bin export-bindings",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test && node --test scripts/*.test.mjs"
+  },
+  "devDependencies": {
+    "@toon-format/toon": "4.1.1"
+  }
+}

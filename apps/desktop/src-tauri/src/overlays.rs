@@ -1,0 +1,235 @@
+//! The OmniBar (FEAT-004) and HUD (FEAT-001) windows, and the OmniBar hotkey.
+//! Both windows are created hidden at startup (tauri.conf.json), so showing
+//! one is instant (APP_SPEC §4).
+
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+use specta::Type;
+use tauri::{AppHandle, LogicalSize, Manager, PhysicalPosition, WebviewWindow};
+use tauri_specta::Event;
+
+use crate::prefs::HudStyle;
+use crate::state::{AppState, HudRect};
+
+pub const MAIN: &str = "main";
+pub const OMNIBAR: &str = "omnibar";
+pub const HUD: &str = "hud";
+
+/// Gap between the HUD and the screen corner, in logical pixels.
+const HUD_MARGIN: f64 = 16.0;
+const FADE_EVERY: Duration = Duration::from_millis(50);
+/// Screens change (docking, resolution): place the HUD again every ~10 s.
+const PLACE_EVERY_TICKS: u32 = 200;
+/// Focus can bounce while a window appears; ignore blur this soon after showing.
+const BLUR_GRACE: Duration = Duration::from_millis(400);
+
+/// Whether the OmniBar hotkey is active, for the Settings page.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Type, Event)]
+pub struct HotkeyStatus {
+    pub hotkey: String,
+    pub registered: bool,
+    pub message: Option<String>,
+}
+
+/// The OmniBar was just shown: clear the input and focus it. `view` asks
+/// for a view instead of the result list (`mc_core::actions::OMNIBAR_VIEWS`).
+#[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
+pub struct OmniBarOpened {
+    pub view: Option<String>,
+}
+
+/// HUD opacity from the cursor's distance (proximity fade), 0 to 1.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
+pub struct HudFade {
+    #[specta(type = specta_typescript::Number)]
+    pub opacity: f64,
+}
+
+/// A short message for the HUD to show, e.g. "Copied".
+#[derive(Clone, Debug, Serialize, Deserialize, Type, Event)]
+pub struct HudFlash {
+    pub text: String,
+}
+
+/// Show a short message on the HUD ("Copied", an error).
+pub fn flash(app: &AppHandle, text: &str) {
+    let _ = HudFlash { text: text.to_owned() }.emit_to(app, HUD);
+}
+
+pub fn toggle_omnibar(app: &AppHandle) {
+    let Some(w) = app.get_webview_window(OMNIBAR) else { return };
+    if w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false) {
+        let _ = w.hide();
+    } else {
+        show_omnibar(app, None);
+    }
+}
+
+/// Show the OmniBar near the top of the screen the mouse is on, on `view`
+/// or the result list. Already open, it stays where it is and switches view.
+pub fn show_omnibar(app: &AppHandle, view: Option<&str>) {
+    let Some(w) = app.get_webview_window(OMNIBAR) else { return };
+    if !w.is_visible().unwrap_or(false)
+        && let Ok(cursor) = app.cursor_position()
+        && let Ok(Some(monitor)) = app.monitor_from_point(cursor.x, cursor.y)
+        && let Ok(size) = w.outer_size()
+    {
+        let area = monitor.work_area();
+        let x = area.position.x + (area.size.width as i32 - size.width as i32) / 2;
+        let y = area.position.y + (f64::from(area.size.height) * 0.2) as i32;
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+    *app.state::<AppState>().omnibar_shown_at.lock().expect("omnibar lock") = Some(Instant::now());
+    let _ = w.show();
+    let _ = w.set_focus();
+    let _ = OmniBarOpened { view: view.map(str::to_owned) }.emit_to(app, OMNIBAR);
+    crate::apps::refresh_if_stale(app);
+}
+
+/// The OmniBar lost focus: close it, unless it only just opened.
+pub fn on_omnibar_blur(app: &AppHandle) {
+    let shown_at = *app.state::<AppState>().omnibar_shown_at.lock().expect("omnibar lock");
+    if shown_at.is_some_and(|t| t.elapsed() < BLUR_GRACE) {
+        return;
+    }
+    hide_omnibar(app);
+}
+
+pub fn hide_omnibar(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window(OMNIBAR) {
+        let _ = w.hide();
+    }
+}
+
+/// Show the main window on a Settings page (`/general`, `/pomodoro`, …).
+pub fn open_settings(app: &AppHandle, page: &str) {
+    let to = format!("/{page}");
+    crate::tray::show_main(app);
+    let _ = crate::state::NavigateRequested { to }.emit_to(app, MAIN);
+}
+
+fn hud(app: &AppHandle) -> Option<WebviewWindow> {
+    app.get_webview_window(HUD)
+}
+
+/// The HUD window's size in logical pixels for each clock style: a status
+/// line (Pomodoro, flashes) above a 150×58 digital or 96×96 analog face.
+/// `HUD_WINDOW` in `apps/desktop/src/hud/HudPage.tsx` matches it. Placing by
+/// this known size works before the window exists natively (Linux creates it
+/// only when shown, and never smaller than 200×200; the page then draws in
+/// this box at the top-left, so the clock still sits in the corner).
+pub fn hud_size(style: HudStyle) -> (f64, f64) {
+    match style {
+        HudStyle::Digital => (160.0, 90.0),
+        HudStyle::Analog => (128.0, 128.0),
+    }
+}
+
+fn current_hud_size(app: &AppHandle) -> (f64, f64) {
+    hud_size(app.state::<AppState>().prefs.read().expect("prefs lock").hud_style)
+}
+
+/// Size the HUD for the current clock style, move it to the bottom-right of
+/// the primary screen's work area (above the taskbar) and return where it is now.
+fn place_hud(app: &AppHandle) -> Option<HudRect> {
+    let w = hud(app)?;
+    let monitor = app.primary_monitor().ok()??;
+    let scale = monitor.scale_factor();
+    let (width, height) = current_hud_size(app);
+    let _ = w.set_size(LogicalSize::new(width, height));
+    let (width, height) = (width * scale, height * scale);
+    let area = monitor.work_area();
+    let margin = HUD_MARGIN * scale;
+    let left = f64::from(area.position.x) + f64::from(area.size.width) - width - margin;
+    let top = f64::from(area.position.y) + f64::from(area.size.height) - height - margin;
+    let _ = w.set_position(PhysicalPosition::new(left as i32, top as i32));
+    Some(HudRect { left, top, right: left + width, bottom: top + height, scale })
+}
+
+/// Show or hide the HUD; showing it again also applies a new clock style.
+pub fn set_hud_visible(app: &AppHandle, visible: bool) {
+    let Some(w) = hud(app) else { return };
+    let state = app.state::<AppState>();
+    if visible {
+        *state.hud_rect.lock().expect("hud lock") = place_hud(app);
+        let _ = w.show();
+        // After showing: on Linux the native window exists only from here on.
+        let _ = w.set_ignore_cursor_events(true);
+        state.hud_wake.notify_one();
+    } else {
+        *state.hud_rect.lock().expect("hud lock") = None;
+        let _ = w.hide();
+    }
+}
+
+/// Distance from a point to a rectangle's edges (0 inside).
+pub fn distance_to_rect(px: f64, py: f64, left: f64, top: f64, right: f64, bottom: f64) -> f64 {
+    let dx = (left - px).max(0.0).max(px - right);
+    let dy = (top - py).max(0.0).max(py - bottom);
+    dx.hypot(dy)
+}
+
+/// Hidden within `near`, fully visible beyond `far`, linear in between (DEC-015).
+pub fn fade_opacity(distance: f64, near: f64, far: f64) -> f64 {
+    if far <= near {
+        return if distance > near { 1.0 } else { 0.0 };
+    }
+    ((distance - near) / (far - near)).clamp(0.0, 1.0)
+}
+
+/// Follow the cursor and tell the HUD how visible to be. Reads only the
+/// cursor position and the settings snapshot; never touches input. While
+/// the HUD is hidden the loop sleeps until `set_hud_visible` wakes it.
+pub fn start_hud_fade(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        let mut last = -1.0_f64;
+        let mut ticks: u32 = 0;
+        loop {
+            let rect = *state.hud_rect.lock().expect("hud lock");
+            let Some(rect) = rect else {
+                last = -1.0;
+                state.hud_wake.notified().await;
+                continue;
+            };
+            tokio::time::sleep(FADE_EVERY).await;
+            ticks = ticks.wrapping_add(1);
+            if ticks.is_multiple_of(PLACE_EVERY_TICKS)
+                && let Some(placed) = place_hud(&app)
+            {
+                let mut current = state.hud_rect.lock().expect("hud lock");
+                if current.is_some() {
+                    *current = Some(placed);
+                }
+            }
+            let Ok(cursor) = app.cursor_position() else { continue };
+            let (near, far) = {
+                let prefs = state.prefs.read().expect("prefs lock");
+                (prefs.hud_fade_near_px, prefs.hud_fade_far_px)
+            };
+            let d = distance_to_rect(cursor.x, cursor.y, rect.left, rect.top, rect.right, rect.bottom) / rect.scale;
+            let opacity = (fade_opacity(d, near, far) * 50.0).round() / 50.0;
+            if (opacity - last).abs() > f64::EPSILON {
+                last = opacity;
+                let _ = HudFade { opacity }.emit_to(&app, HUD);
+            }
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fade_follows_distance_from_the_hud_edges() {
+        assert_eq!(distance_to_rect(5.0, 5.0, 0.0, 0.0, 10.0, 10.0), 0.0);
+        assert_eq!(distance_to_rect(13.0, 14.0, 0.0, 0.0, 10.0, 10.0), 5.0);
+        assert_eq!(distance_to_rect(-30.0, 5.0, 0.0, 0.0, 10.0, 10.0), 30.0);
+        assert_eq!(fade_opacity(30.0, 60.0, 220.0), 0.0);
+        assert_eq!(fade_opacity(140.0, 60.0, 220.0), 0.5);
+        assert_eq!(fade_opacity(900.0, 60.0, 220.0), 1.0);
+        assert_eq!(fade_opacity(61.0, 60.0, 60.0), 1.0);
+    }
+}

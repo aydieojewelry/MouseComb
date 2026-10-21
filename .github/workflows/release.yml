@@ -1,0 +1,240 @@
+# Releases (CR/CR.md "Versioning"): versions are x.y.z+b, always from `main`.
+# - A push to main that adds a version section to CHANGELOG.md releases that version.
+# - Pushing a tag `vX.Y.Z+B` releases exactly that version.
+# - Run workflow with "hotfix" filled in rebuilds main as the same x.y.z with the
+#   build number + 1 (no branch, no CHANGELOG change). Run on main with it empty to
+#   retry a release that failed.
+# Versions 0.y.z are published as prototypes (pre-releases).
+# Publishing waits for a human approval on the "release" environment when it has reviewers.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+    paths: [CHANGELOG.md]
+  workflow_dispatch:
+    inputs:
+      hotfix:
+        description: "Hotfix: what it fixes (rebuilds main with the build number + 1). Leave empty to retry the newest CHANGELOG version."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Work out the version
+    runs-on: ubuntu-24.04
+    outputs:
+      release: ${{ steps.next.outputs.release }}
+      tag: ${{ steps.next.outputs.tag }}
+      display: ${{ steps.next.outputs.display }}
+      prerelease: ${{ steps.next.outputs.prerelease }}
+      build: ${{ steps.next.outputs.build }}
+      notes: ${{ steps.next.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: next
+        env:
+          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
+          PUSHED_BRANCH: ${{ github.ref_type == 'branch' && github.ref_name || '' }}
+          HOTFIX: ${{ github.event_name == 'workflow_dispatch' && inputs.hotfix || '' }}
+        run: |
+          node scripts/version.mjs plan > plan.json
+          cat plan.json
+          {
+            echo "release=$(node -p 'require("./plan.json").release')"
+            echo "tag=$(node -p 'require("./plan.json").tag ?? ""')"
+            echo "display=$(node -p 'require("./plan.json").display ?? ""')"
+            echo "prerelease=$(node -p 'require("./plan.json").prerelease ?? false')"
+            echo "build=$(node -p 'require("./plan.json").build ?? 0')"
+            echo "notes<<EOF_NOTES"
+            node -p 'require("./plan.json").notes ?? ""'
+            echo "EOF_NOTES"
+          } >> "$GITHUB_OUTPUT"
+
+  # One draft release that both platform builds upload to; published once both are in.
+  draft:
+    name: Create the draft release
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    environment: release
+    outputs:
+      id: ${{ steps.create.outputs.id }}
+    steps:
+      - id: create
+        uses: actions/github-script@v7
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+          DISPLAY_VERSION: ${{ needs.plan.outputs.display }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          NOTES: ${{ needs.plan.outputs.notes }}
+        with:
+          script: |
+            const prototype = process.env.PRERELEASE === "true";
+            const body = [
+              prototype
+                ? "**Prototype.** For testing: things will change, and data may need to be set up again in a later version."
+                : "",
+              process.env.NOTES,
+              "",
+              "### Downloads",
+              "- **Windows 10/11:** `MouseComb_*_x64-setup.exe` (installs for you only, no admin) or the `.msi`.",
+              "- **Linux x64:** the `.AppImage` (make it executable and run it), the `.deb` (Ubuntu, Debian) or the `.rpm` (Fedora, openSUSE).",
+              "",
+              "The installers aren't code-signed yet, so Windows SmartScreen may warn: choose **More info → Run anyway**.",
+            ].filter((line, i) => line !== "" || i > 0).join("\n");
+            // A failed earlier run leaves a draft behind; replace it.
+            const drafts = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            for (const d of drafts.filter((r) => r.draft && r.tag_name === process.env.TAG)) {
+              await github.rest.repos.deleteRelease({ ...context.repo, release_id: d.id });
+            }
+            const { data } = await github.rest.repos.createRelease({
+              ...context.repo,
+              tag_name: process.env.TAG,
+              target_commitish: context.sha,
+              name: `MouseComb ${process.env.DISPLAY_VERSION}${prototype ? " (prototype)" : ""}`,
+              body,
+              draft: true,
+              prerelease: prototype,
+            });
+            core.setOutput("id", data.id);
+
+  publish:
+    name: Build (${{ matrix.name }})
+    needs: [plan, draft]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: Windows
+            os: windows-2022
+          # The oldest supported Ubuntu, so the AppImage runs on older distros too.
+          - name: Linux
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: System libraries for Tauri
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev rpm
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Stamp version
+        shell: bash
+        run: node scripts/version.mjs apply "${{ needs.plan.outputs.display }}"
+      # Installed apps verify every update against this public key (FEAT-022).
+      # Without the key (owner setup in CR/PIPELINE.md) the build still ships, with updates off.
+      - name: Turn on signed updates
+        id: updater
+        shell: bash
+        env:
+          PUBKEY: ${{ vars.MOUSECOMB_UPDATER_PUBKEY }}
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$PUBKEY" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::warning::No updater key yet (CR/PIPELINE.md one-time setup): this release can't update itself."
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          node -e '
+            const fs = require("fs");
+            const file = "apps/desktop/src-tauri/tauri.conf.json";
+            const conf = JSON.parse(fs.readFileSync(file, "utf8"));
+            conf.bundle.createUpdaterArtifacts = true;
+            conf.plugins.updater.pubkey = process.env.PUBKEY;
+            fs.writeFileSync(file, JSON.stringify(conf, null, 2) + "\n");
+          '
+          echo "on=true" >> "$GITHUB_OUTPUT"
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.updater.outputs.on == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ steps.updater.outputs.on == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          MOUSECOMB_DEFAULT_SERVER: ${{ vars.MOUSECOMB_DEFAULT_SERVER }}
+          MOUSECOMB_BUILD: ${{ needs.plan.outputs.build }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.draft.outputs.id }}
+          # latest.json lists both platforms; Windows updates use the per-user
+          # NSIS installer, Linux updates the AppImage.
+          includeUpdaterJson: ${{ steps.updater.outputs.on == 'true' }}
+          updaterJsonPreferNsis: true
+
+  release:
+    name: Publish the release
+    needs: [plan, draft, publish]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          ID: ${{ needs.draft.outputs.id }}
+        with:
+          script: |
+            const release_id = Number(process.env.ID);
+            await github.rest.repos.updateRelease({ ...context.repo, release_id, draft: false });
+
+            // Installed apps read their update feed from a fixed release tag, `updates`:
+            // GitHub's "latest" skips pre-releases, and every 0.y.z version is one (FEAT-022).
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id });
+            const feed = assets.find((a) => a.name === "latest.json");
+            if (!feed) {
+              core.warning("This release has no latest.json (no updater key yet), so the update feed is unchanged.");
+              return;
+            }
+            const download = await github.request("GET /repos/{owner}/{repo}/releases/assets/{asset_id}", {
+              ...context.repo,
+              asset_id: feed.id,
+              headers: { accept: "application/octet-stream" },
+            });
+            const data = Buffer.from(download.data);
+
+            let channel;
+            try {
+              channel = (await github.rest.repos.getReleaseByTag({ ...context.repo, tag: "updates" })).data;
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              channel = (
+                await github.rest.repos.createRelease({
+                  ...context.repo,
+                  tag_name: "updates",
+                  target_commitish: context.sha,
+                  name: "Update feed (automatic)",
+                  body: "Installed copies of MouseComb read `latest.json` from here to find new versions. Nothing to download: get the installers from the numbered releases.",
+                  prerelease: true,
+                })
+              ).data;
+            }
+            for (const old of channel.assets.filter((a) => a.name === "latest.json")) {
+              await github.rest.repos.deleteReleaseAsset({ ...context.repo, asset_id: old.id });
+            }
+            await github.rest.repos.uploadReleaseAsset({
+              ...context.repo,
+              release_id: channel.id,
+              name: "latest.json",
+              data,
+              headers: { "content-type": "application/json", "content-length": data.length },
+            });
+            core.info("Update feed now points at ${{ needs.plan.outputs.display }}.");
