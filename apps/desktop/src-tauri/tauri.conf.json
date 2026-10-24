@@ -58,10 +58,24 @@
         "shadow": false,
         "theme": "Dark",
         "create": false
+      },
+      {
+        "label": "editor",
+        "title": "MouseComb Editor",
+        "url": "index.html#/editor",
+        "width": 1120,
+        "height": 760,
+        "minWidth": 760,
+        "minHeight": 480,
+        "theme": "Dark",
+        "backgroundColor": "#0E0E10",
+        "center": true,
+        "visible": false,
+        "create": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:*; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     }
   },
   "bundle": {

@@ -138,6 +138,7 @@ func TestListSortsFoldersFirst(t *testing.T) {
 }
 
 func TestRenameAndDelete(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir()) // the trash lives under here, not the real one
 	r := newRoot(t)
 	if _, err := r.Create("a.md", "x"); err != nil {
 		t.Fatal(err)
@@ -150,6 +151,9 @@ func TestRenameAndDelete(t *testing.T) {
 	}
 	if err := r.Delete("b.md"); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(r.path, "b.md")); !os.IsNotExist(err) {
+		t.Fatal("the deleted file should be gone from the workspace")
 	}
 	if err := r.Delete(""); codeOf(err) != 400 {
 		t.Fatalf("the workspace folder itself must not be deletable, got %v", err)

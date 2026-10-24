@@ -408,8 +408,8 @@ func (r Root) Rename(from, to string) error {
 	return nil
 }
 
-// Delete removes a file or folder for good. The editor asks first; there is
-// no trash folder yet.
+// Delete moves a file or folder to the OS trash, where it can be restored.
+// If the trash can't be used, nothing is deleted.
 func (r Root) Delete(rel string) error {
 	clean, err := cleanRel(rel)
 	if err != nil {
@@ -422,14 +422,13 @@ func (r Root) Delete(rel string) error {
 	if err != nil {
 		return err
 	}
-	fi, err := os.Lstat(full)
-	if err != nil {
+	if _, err := os.Lstat(full); err != nil {
 		return statusErr(404, "That file or folder doesn't exist any more.")
 	}
-	if fi.IsDir() && fi.Mode()&fs.ModeSymlink == 0 {
-		return os.RemoveAll(full)
+	if err := moveToTrash(full); err != nil {
+		return statusErr(500, "Couldn't move it to the trash, so nothing was deleted.")
 	}
-	return os.Remove(full)
+	return nil
 }
 
 func requireDir(p string) error {

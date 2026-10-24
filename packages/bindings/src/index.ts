@@ -7,6 +7,10 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
+	editorBackendStart: () => typedError<EditorBackend, CommandError>(__TAURI_INVOKE("editor_backend_start")),
+	editorBackendStop: () => typedError<null, CommandError>(__TAURI_INVOKE("editor_backend_stop")),
+	/**  Ask for a workspace folder. `None` when the user cancels. */
+	editorPickFolder: () => typedError<string | null, CommandError>(__TAURI_INVOKE("editor_pick_folder")),
 	itemsList: (kind: string) => typedError<Item[], CommandError>(__TAURI_INVOKE("items_list", { kind })),
 	itemPut: (kind: string, key: string, data: Json) => typedError<Item, CommandError>(__TAURI_INVOKE("item_put", { kind, key, data })),
 	itemDelete: (kind: string, key: string) => typedError<null, CommandError>(__TAURI_INVOKE("item_delete", { kind, key })),
@@ -127,6 +131,12 @@ export type CommandError = {
 };
 
 export type CommandGroup = "mouse_comb" | "pomodoro" | "windows";
+
+/**  Where the editor window reaches the service. */
+export type EditorBackend = {
+	port: number,
+	token: string,
+};
 
 /**  What went wrong, in a form the UI can branch on. */
 export type ErrorCode = "invalid_credentials" | "signed_out" | "validation" | "rate_limited" | "network" | "server" | "storage" | 

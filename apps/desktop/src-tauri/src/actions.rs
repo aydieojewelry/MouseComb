@@ -14,7 +14,7 @@ use crate::commands::Json;
 use crate::error::{CommandError, CommandResult, ErrorCode};
 use crate::overlays;
 use crate::state::AppState;
-use crate::{engine, pomodoro, prefs, sync_loop, updates};
+use crate::{editor, engine, pomodoro, prefs, sync_loop, updates};
 
 #[derive(Clone, Debug, Default, Serialize, Type)]
 pub struct ActionResult {
@@ -99,6 +99,10 @@ pub async fn run(app: &AppHandle, action: &str, with: &Value, confirmed: bool) -
                 0 => "Everything's in sync".to_owned(),
                 n => format!("Synced {n} change{}", if n == 1 { "" } else { "s" }),
             }))
+        }
+        id::EDITOR_OPEN => {
+            editor::show(app)?;
+            Ok(ActionResult::default())
         }
         id::UPDATE_CHECK => {
             let status = updates::check_now(app).await?;

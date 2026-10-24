@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 pub mod id {
     pub const OMNIBAR_OPEN: &str = "mc.omnibar.open";
     pub const SETTINGS_OPEN: &str = "mc.settings.open";
+    pub const EDITOR_OPEN: &str = "mc.editor.open";
     pub const SYNC_NOW: &str = "mc.sync.now";
     pub const UPDATE_CHECK: &str = "mc.update.check";
     pub const UPDATE_INSTALL: &str = "mc.update.install";
@@ -138,6 +139,14 @@ fn build_catalog() -> Vec<Command> {
         &["preferences", "config", "options"],
         MouseComb,
     )];
+    out.push(command(
+        id::EDITOR_OPEN,
+        Value::Null,
+        "Open Editor",
+        "MouseComb",
+        &["files", "markdown", "csv", "toml", "notes", "explorer"],
+        MouseComb,
+    ));
     for (page, title, words) in SETTINGS_PAGES {
         out.push(command(id::SETTINGS_OPEN, json!({ "page": page }), title, "MouseComb settings", words, MouseComb));
     }
