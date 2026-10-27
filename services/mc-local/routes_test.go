@@ -107,7 +107,7 @@ func TestRoutes(t *testing.T) {
 			"workspace": testWS, "path": "plan.md", "content": "---\nstatus: review\n---\n# Plan\n", "expected_hash": planHashOf(),
 		}, 200, authed(), `"hash"`),
 		scenario("save with a stale hash is a conflict", "PUT", put, map[string]any{
-			"workspace": testWS, "path": "plan.md", "content": planBody, "expected_hash": "stale",
+			"workspace": testWS, "path": "plan.md", "content": "no frontmatter here", "expected_hash": "stale",
 		}, 409, authed(), "changed on disk"),
 		scenario("draft cannot jump to published", "PUT", put, map[string]any{
 			"workspace": testWS, "path": "plan.md", "expected_hash": planHashOf(),

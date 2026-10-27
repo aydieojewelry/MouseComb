@@ -207,8 +207,18 @@ func writeFile(app core.App) func(*core.RequestEvent) error {
 		if isDoc {
 			old, err := root.Read(clean)
 			switch {
-			case err == nil && !old.Binary:
-				from = parseMarkdown(old.Content).Status
+			case err == nil:
+				// A stale hash is a conflict first: report it before judging the new text.
+				if req.ExpectedHash != old.Hash {
+					return fail(e, &statusError{
+						Status:  409,
+						Message: "This file changed on disk since you opened it. Reload it, or save as a new file.",
+						Data:    map[string]any{"hash": old.Hash},
+					})
+				}
+				if !old.Binary {
+					from = parseMarkdown(old.Content).Status
+				}
 			case err != nil:
 				if se, ok := statusOf(err); !ok || se.Status != 404 {
 					return fail(e, err)
