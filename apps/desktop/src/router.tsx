@@ -26,7 +26,6 @@ const page = {
   account: lazyRouteComponent(() => import("./pages/AccountPage"), "AccountPage"),
   about: lazyRouteComponent(() => import("./pages/AboutPage"), "AboutPage"),
   whatsNew: lazyRouteComponent(() => import("./pages/WhatsNewPage"), "WhatsNewPage"),
-  editor: lazyRouteComponent(() => import("./editor/EditorPage"), "EditorPage"),
 };
 
 // Each window loads the same app on its own route: `main` shows Settings
@@ -74,14 +73,11 @@ const accountRoute = createRoute({ getParentRoute: () => settingsRoute, path: "a
 const aboutRoute = createRoute({ getParentRoute: () => settingsRoute, path: "about", component: page.about });
 const whatsNewRoute = createRoute({ getParentRoute: () => settingsRoute, path: "whats-new", component: page.whatsNew });
 
-const editorRoute = createRoute({ getParentRoute: () => rootRoute, path: "editor", component: page.editor });
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   welcomeRoute,
   omnibarRoute,
   hudRoute,
-  editorRoute,
   settingsRoute.addChildren([generalRoute, pomodoroRoute, bindingsRoute, snippetsRoute, accountRoute, whatsNewRoute, aboutRoute]),
 ]);
 

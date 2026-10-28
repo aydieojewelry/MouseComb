@@ -6,7 +6,6 @@
 mod actions;
 mod apps;
 mod commands;
-mod editor;
 mod engine;
 mod error;
 mod overlays;
@@ -33,9 +32,6 @@ pub const MINIMIZED_ARG: &str = "--minimized";
 pub fn specta_builder() -> Builder<Wry> {
     Builder::<Wry>::new()
         .commands(collect_commands![
-            editor::editor_backend_start,
-            editor::editor_backend_stop,
-            editor::editor_pick_folder,
             commands::items_list,
             commands::item_put,
             commands::item_delete,
@@ -135,7 +131,6 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         // Shortcuts are registered one by one in `engine::reload`, each with its own handler.
@@ -159,17 +154,12 @@ pub fn run() {
             })));
             let prefs = state.prefs();
             app.manage(state);
-            app.manage(editor::Service::default());
 
             // The windows are created only now (`"create": false` in tauri.conf.json):
             // their pages call commands that need the state above as soon as they
             // load, and WebView2 can load before setup finishes.
             let minimized = std::env::args().any(|a| a == MINIMIZED_ARG);
             for config in app.config().app.windows.clone() {
-                // The editor is built the first time it opens (editor::show), so idle it costs nothing.
-                if config.label == editor::WINDOW {
-                    continue;
-                }
                 let visible = config.visible && !(minimized && config.label == overlays::MAIN);
                 tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.visible(visible).build()?;
             }
@@ -187,14 +177,10 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             // Closing the window keeps MouseComb running in the tray.
-            WindowEvent::CloseRequested { api, .. }
-                if window.label() != overlays::HUD && window.label() != editor::WINDOW =>
-            {
+            WindowEvent::CloseRequested { api, .. } if window.label() != overlays::HUD => {
                 api.prevent_close();
                 let _ = window.hide();
             }
-            // Closing the editor stops its service; its window is built again next time.
-            WindowEvent::Destroyed if window.label() == editor::WINDOW => editor::stop(window.app_handle()),
             // The OmniBar goes away as soon as you click somewhere else.
             WindowEvent::Focused(false) if window.label() == overlays::OMNIBAR => {
                 overlays::on_omnibar_blur(window.app_handle());

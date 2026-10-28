@@ -296,13 +296,6 @@ export function installMockBackend(options: { seed?: Item[]; account?: Account |
         case "plugin:autostart|disable":
           autostart = false;
           return null;
-        // The editor's service doesn't run in the preview: port 0 tells the editor to use its in-memory files.
-        case "editor_backend_start":
-          return { port: 0, token: "" };
-        case "editor_backend_stop":
-          return null;
-        case "editor_pick_folder":
-          return null;
         default:
           throw new Error(`mock backend: unknown command ${cmd}`);
       }

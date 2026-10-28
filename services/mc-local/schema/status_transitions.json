@@ -1,9 +1,0 @@
-{
-  "statuses": ["draft", "review", "published", "archived"],
-  "transitions": {
-    "draft": ["review"],
-    "review": ["draft", "published"],
-    "published": ["draft", "archived"],
-    "archived": []
-  }
-}
